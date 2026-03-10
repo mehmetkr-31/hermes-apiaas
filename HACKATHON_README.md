@@ -47,3 +47,8 @@ To see the system catch a broken scraper and fix it live using the LLM:
 4. The background health monitor detects the failure, calculates the DOM fingerprint difference, and calls the Hermes API.
 5. Hermes rewrites the scraper to use the new CSS selectors while perfectly preserving your Pydantic schemas.
 6. The new code is hot-swapped into production. The API recovers autonomously!
+
+## 🎬 Demo
+Watch Weaver in action as it detects a broken site and heals itself using the Hermes-4-405B model:
+
+![Weaver Self-Healing Demo](demo.gif)

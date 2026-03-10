@@ -83,12 +83,12 @@
 
         /* =====================================================
        DOM BREAK SIMULATION:
-       .announcement-card  →  .announcement-card   (renamed)
-       .ann-title          →  .ann-title  (renamed)
-       .ann-date           →  .ann-date     (renamed)
-       .ann-department     →  .ann-department     (renamed)
+       .ann-item  →  .ann-item   (renamed)
+       .item-heading          →  .ann-heading  (renamed)
+       .item-date           →  .ann-post-date     (renamed)
+       .item-dept     →  .ann-dept-label     (renamed)
        ===================================================== */
-        .announcement-card {
+        .ann-item {
             background: white;
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -134,14 +134,14 @@
             flex: 1;
         }
 
-        .ann-title {
+        .ann-heading {
             font-size: 1rem;
             font-weight: bold;
             color: var(--navy);
             margin-bottom: 0.3rem;
         }
 
-        .ann-title a {
+        .ann-heading a {
             color: inherit;
             text-decoration: none;
         }
@@ -189,80 +189,80 @@
     <div class="container">
         <div class="announcements-list" id="ann-list">
 
-            <div class="announcement-card">
+            <div class="ann-item">
                 <div class="ann-category-badge badge-deadline">Deadline</div>
                 <div class="ann-body">
-                    <div class="ann-title"><a href="#">Spring 2025 Course Registration Closes</a></div>
+                    <div class="ann-heading"><a href="#">Spring 2025 Course Registration Closes</a></div>
                     <div class="ann-excerpt">All students must complete their Spring 2025 course registration by end of
                         this week. Late registrations will incur a $150 administrative fee.</div>
                     <div class="ann-meta">
-                        <span>📅 <time class="ann-date" datetime="2025-03-10">March 10, 2025</time></span>
-                        <span>🏛️ <span class="ann-department">Registrar's Office</span></span>
+                        <span>📅 <time class="ann-post-date" datetime="2025-03-10">March 10, 2025</time></span>
+                        <span>🏛️ <span class="ann-dept-label">Registrar's Office</span></span>
                     </div>
                 </div>
             </div>
 
-            <div class="announcement-card">
+            <div class="ann-item">
                 <div class="ann-category-badge badge-event">Event</div>
                 <div class="ann-body">
-                    <div class="ann-title"><a href="#">Annual Science & Technology Symposium</a></div>
+                    <div class="ann-heading"><a href="#">Annual Science & Technology Symposium</a></div>
                     <div class="ann-excerpt">18th Annual S&T Symposium featuring keynote speakers from MIT and Stanford.
                         Workshops on AI, Quantum Computing, and Biotech.</div>
                     <div class="ann-meta">
-                        <span>📅 <time class="ann-date" datetime="2025-03-15">March 15, 2025</time></span>
-                        <span>🏛️ <span class="ann-department">Faculty of Engineering</span></span>
+                        <span>📅 <time class="ann-post-date" datetime="2025-03-15">March 15, 2025</time></span>
+                        <span>🏛️ <span class="ann-dept-label">Faculty of Engineering</span></span>
                     </div>
                 </div>
             </div>
 
-            <div class="announcement-card">
+            <div class="ann-item">
                 <div class="ann-category-badge badge-academic">Academic</div>
                 <div class="ann-body">
-                    <div class="ann-title"><a href="#">Mid-Term Examination Schedule Published</a></div>
+                    <div class="ann-heading"><a href="#">Mid-Term Examination Schedule Published</a></div>
                     <div class="ann-excerpt">The mid-term examination schedule for all undergraduate and postgraduate
                         programs has been published on the student portal.</div>
                     <div class="ann-meta">
-                        <span>📅 <time class="ann-date" datetime="2025-03-12">March 12, 2025</time></span>
-                        <span>🏛️ <span class="ann-department">Academic Affairs</span></span>
+                        <span>📅 <time class="ann-post-date" datetime="2025-03-12">March 12, 2025</time></span>
+                        <span>🏛️ <span class="ann-dept-label">Academic Affairs</span></span>
                     </div>
                 </div>
             </div>
 
-            <div class="announcement-card">
+            <div class="ann-item">
                 <div class="ann-category-badge badge-general">General</div>
                 <div class="ann-body">
-                    <div class="ann-title"><a href="#">Library Extended Hours During Exam Period</a></div>
+                    <div class="ann-heading"><a href="#">Library Extended Hours During Exam Period</a></div>
                     <div class="ann-excerpt">The library will extend hours to 24/7 starting March 14 through April 5 to
                         support students during mid-terms.</div>
                     <div class="ann-meta">
-                        <span>📅 <time class="ann-date" datetime="2025-03-08">March 8, 2025</time></span>
-                        <span>🏛️ <span class="ann-department">Library Services</span></span>
+                        <span>📅 <time class="ann-post-date" datetime="2025-03-08">March 8, 2025</time></span>
+                        <span>🏛️ <span class="ann-dept-label">Library Services</span></span>
                     </div>
                 </div>
             </div>
 
-            <div class="announcement-card">
+            <div class="ann-item">
                 <div class="ann-category-badge badge-academic">Academic</div>
                 <div class="ann-body">
-                    <div class="ann-title"><a href="#">Graduate Research Grant Applications Open</a></div>
+                    <div class="ann-heading"><a href="#">Graduate Research Grant Applications Open</a></div>
                     <div class="ann-excerpt">Applications for the 2025–2026 Graduate Research Grant are now open. Grants
                         up to $8,000 for doctoral candidates. Deadline: April 30, 2025.</div>
                     <div class="ann-meta">
-                        <span>📅 <time class="ann-date" datetime="2025-03-05">March 5, 2025</time></span>
-                        <span>🏛️ <span class="ann-department">Graduate School</span></span>
+                        <span>📅 <time class="ann-post-date" datetime="2025-03-05">March 5, 2025</time></span>
+                        <span>🏛️ <span class="ann-dept-label">Graduate School</span></span>
                     </div>
                 </div>
             </div>
 
-            <div class="announcement-card">
+            <div class="ann-item">
                 <div class="ann-category-badge badge-event">Event</div>
                 <div class="ann-body">
-                    <div class="ann-title"><a href="#">Career Fair – Spring Edition</a></div>
+                    <div class="ann-heading"><a href="#">Career Fair – Spring Edition</a></div>
                     <div class="ann-excerpt">Over 80 companies including Google, Microsoft, and Deloitte will attend the
                         Spring Career Fair. Bring printed CVs.</div>
                     <div class="ann-meta">
-                        <span>📅 <time class="ann-date" datetime="2025-03-20">March 20, 2025</time></span>
-                        <span>🏛️ <span class="ann-department">Career Development Center</span></span>
+                        <span>📅 <time class="ann-post-date" datetime="2025-03-20">March 20, 2025</time></span>
+                        <span>🏛️ <span class="ann-dept-label">Career Development Center</span></span>
                     </div>
                 </div>
             </div>

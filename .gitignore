@@ -9,3 +9,4 @@ agent/scraper_generated.py
 agent/state.json
 agent/heal_log.jsonl
 .DS_Store
+demo.cast

@@ -5,12 +5,16 @@ FastAPI web scraper auto-generated based on the target website's
 DOM structure and a provided Pydantic schema.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import httpx
 from bs4 import BeautifulSoup
 import time
+import json
+from datetime import datetime
+from pathlib import Path
 
 app = FastAPI(
     title="Weaver Auto-Scraper",
@@ -85,6 +89,40 @@ def scrape_v1(html: str) -> list[dict]:
 
     return results
 
+# ── Scraping logic — V2 selectors (updated DOM) ────────────────────────────
+def scrape_v2(html: str) -> list[dict]:
+    """
+    Selectors for updated DOM:
+      card:       .ann-item
+      title:      .ann-heading a
+      category:   .ann-category-badge (first word of text)
+      excerpt:    .ann-excerpt
+      date:       time.ann-post-date [datetime attr]
+      department: .ann-dept-label
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    results = []
+
+    for card in soup.select(".ann-item"):
+        title_el    = card.select_one(".ann-heading a")
+        excerpt_el  = card.select_one(".ann-excerpt")
+        date_el     = card.select_one("time.ann-post-date")
+        dept_el     = card.select_one(".ann-dept-label")
+        badge_el    = card.select_one(".ann-category-badge")
+
+        if not title_el:
+            continue
+
+        results.append({
+            "title":      title_el.get_text(strip=True),
+            "category":   badge_el.get_text(strip=True) if badge_el else "Unknown",
+            "excerpt":    excerpt_el.get_text(strip=True) if excerpt_el else "",
+            "date":       date_el.get("datetime", "") if date_el else "",
+            "department": dept_el.get_text(strip=True) if dept_el else "",
+        })
+
+    return results
+
 
 def compute_dom_fingerprint(html: str) -> str:
     """Lightweight fingerprint: counts key structural selectors."""
@@ -114,7 +152,7 @@ async def get_announcements():
             raise HTTPException(status_code=502, detail=f"Cannot reach target: {e}")
 
     html = resp.text
-    announcements = scrape_v1(html)
+    announcements = scrape_v2(html)  # Updated to use v2 selectors
 
     if not announcements:
         # Return degraded response — triggers health check alert
@@ -128,7 +166,7 @@ async def get_announcements():
         "last_successful_scrape": datetime.utcnow().isoformat(),
         "announcement_count": len(announcements),
         "dom_fingerprint": compute_dom_fingerprint(html),
-        "selector_version": "v1"
+        "selector_version": "v2"  # Updated to v2
     }
     save_state(state)
 
@@ -157,7 +195,7 @@ async def health_check():
                 message=f"Target unreachable: {e}"
             )
 
-    announcements = scrape_v1(html)
+    announcements = scrape_v2(html)  # Updated to use v2 selectors
     fingerprint   = compute_dom_fingerprint(html)
 
     if not announcements:

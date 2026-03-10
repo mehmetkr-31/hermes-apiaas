@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+agent/backups/
+agent/scraper_generated.py
+*.log
+*.pid
+agent/state.json
+agent/heal_log.jsonl
+.DS_Store

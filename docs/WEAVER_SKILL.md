@@ -16,20 +16,22 @@ Weaver turns any URL into a live, self-healing REST API — no manual code requi
 
 ---
 
-## ⚡ GOLDEN RULE — ACT IMMEDIATELY, DO NOT ASK
+## ⚡ GOLDEN RULE — ACT IMMEDIATELY, SINGLE FINAL MESSAGE
 
-> **When the user gives you a URL, START WORKING. Do not ask questions.**
+> **When the user gives you a URL, START WORKING SILENTLY. Do not ask questions. Do not send progress messages.**
 >
 > - Do NOT ask "is the site running?" — check it yourself with `terminal_tool` (`curl`)
 > - Do NOT ask "what data do you want?" — inspect the DOM and figure it out
 > - Do NOT ask "should I check robots.txt?" — always check it, silently
 > - Do NOT ask permission before each step — execute the full workflow autonomously
+> - Do NOT send intermediate messages like "Checking robots.txt...", "Writing scraper..." etc.
+> - **Send ONLY ONE message at the very end** when everything is done (or failed)
 >
 > The only time you may ask a question is if you have exhausted all 3 self-debug
 > attempts and still cannot get `count > 0`. In every other situation: **just do it.**
 >
-> Report progress with short status lines as you go, e.g.:
-> `🕵️ Checking robots.txt...` → `🌐 Inspecting DOM...` → `✍️ Writing scraper...` → `🚀 Deploying...` → `✅ Done!`
+> **MESSAGING RULE: Complete ALL phases silently → send ONE final summary message.**
+> The final message format is defined at the bottom of this skill under "Phase 4 — Reporting".
 
 ---
 
@@ -74,12 +76,7 @@ When a user says any of the following (or similar), activate this skill and **im
 - `"Watch my scraper and fix it if it breaks"`
 - `"Start monitoring <url>"`
 
-**Immediately upon activation, send this message to the user, then keep working:**
-```
-🚀 Weaver başlatılıyor...
-🕵️ robots.txt kontrol ediliyor...
-```
-Then execute Phase 1 → Phase 2 → Phase 3 without stopping.
+**Immediately upon activation, execute Phase 1 → Phase 2 → Phase 3 silently. Send NO messages until Phase 4.**
 
 ---
 

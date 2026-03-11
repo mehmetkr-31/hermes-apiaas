@@ -12,7 +12,7 @@ from reporter import send_telegram_message, request_approval, get_global_config,
 load_dotenv()
 AGENT_ROOT  = pathlib.Path(__file__).parent.parent.parent.resolve()
 DATA_DIR    = AGENT_ROOT.parent.parent.resolve() / ".tmp"
-LOG_DIR     = AGENT_ROOT / "agent" / "on_call_logs"
+LOG_DIR     = AGENT_ROOT / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -50,7 +50,9 @@ Body:
 
 YOUR TASK:
 1. Research the problem:
-   - Search the codebase (THIS TARGET PROJECT at {repo_path}) for related code using file tools.
+   - ⚡ CRITICAL PEFORMANCE RULE: The repository is ALREADY cloned to your local filesystem at `{repo_path}`.
+   - You MUST use fast local terminal commands like `ls -la {repo_path}`, `cat`, `grep`, or file tools to read the code.
+   - Do NOT use slow `gh api` or network calls to read files or directory contents unless absolutely necessary.
    - ⚠️ IMPORTANT: If you find {repo_path} is empty (only has .git), do NOT hallucinate code. Instead, use your terminal tool (e.g. `gh repo view {owner}/{repo}` or `git remote`) to verify if the repository is actually empty on GitHub or if there was a cloning issue.
    - Use web_search if needed.
 2. Formulate a detailed analysis.

@@ -12,7 +12,7 @@ from reporter import send_telegram_message, request_approval, get_global_config,
 load_dotenv()
 AGENT_ROOT  = pathlib.Path(__file__).parent.parent.parent.resolve()
 DATA_DIR    = AGENT_ROOT.parent.parent.resolve() / ".tmp"
-LOG_DIR     = AGENT_ROOT / "agent" / "on_call_logs"
+LOG_DIR     = AGENT_ROOT / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -49,6 +49,9 @@ Author: {author}
 
 YOUR TASK:
 1. Research the changes:
+   - ⚡ CRITICAL PEFORMANCE RULE: The repository is ALREADY cloned to your local filesystem at `{repo_path}`.
+   - You MUST use fast local terminal commands like `ls -la {repo_path}`, `cat`, `grep`, or file tools to read the code.
+   - Do NOT use slow `gh api` or network calls to read files or directory contents unless absolutely necessary.
    - Check the PR diff using terminal commands if needed.
    - Search the codebase at {repo_path} to understand the impact.
 2. Formulate a detailed review.

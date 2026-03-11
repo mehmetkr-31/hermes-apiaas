@@ -27,6 +27,7 @@ import telegram
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 from run_agent import AIAgent
+from encryption_utils import decrypt
 
 load_dotenv()
 
@@ -61,7 +62,7 @@ def get_global_config(key: str) -> str:
                 cur = conn.cursor()
                 cur.execute("SELECT value FROM global_config WHERE key = ?", (key,))
                 row = cur.fetchone()
-                if row: return row[0]
+                if row: return decrypt(row[0]) if key in ["TELEGRAM_BOT_TOKEN"] else row[0]
     except Exception as e:
         logging.error(f"Failed to read {key} from DB: {e}")
     return ""

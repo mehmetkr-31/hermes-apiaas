@@ -57,7 +57,9 @@ export const onCallRouter = {
 				return await response.json();
 			} catch (error) {
 				console.error("Chat error:", error);
-				return { response: "Error: Agent is not running or failed to respond." };
+				return {
+					response: "Error: Agent is not running or failed to respond.",
+				};
 			}
 		}),
 };

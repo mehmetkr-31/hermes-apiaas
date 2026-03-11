@@ -1,257 +1,371 @@
 #!/usr/bin/env python3
 """
-Hermes Telegram Reporter + Bidirectional Bot
+Hermes Telegram Reporter + Interactive Bot (SDK Version)
 
 Modes:
-  1. send_telegram_message(text)    → one-shot message (used by agents)
-  2. start_bot()                    → long-poll bot that accepts commands
+  1. send_telegram_message(text)    → one-shot message
+  2. request_approval(text, id)      → blocks until user clicks Approve/Reject
+  3. start_bot()                    → long-poll bot with command & callback handlers
 
-Commands supported:
-  /status              → show active incidents / pending rollbacks
-  /logs [n]            → last N lines from monitoring.jsonl (default 30)
-  /rollback <run_id>   → re-run failed GitHub Action jobs
-  /issue <number>      → show GitHub issue title + URL
-  /approve             → acknowledge latest pending action
-  /help                → list commands
+Database:
+  Uses the 'approvals' table (curated by Drizzle) in local.db to sync between 
+  one-shot agent calls and the long-running bot.
 """
 import os
 import pathlib
 import threading
 import time
 import logging
-import httpx
 import sqlite3
-from typing import Optional
+import asyncio
+import json
+from typing import Optional, Dict, Any
+from datetime import datetime
 from dotenv import load_dotenv
+
+import telegram
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
+from run_agent import AIAgent
 
 load_dotenv()
 
+# Pathing setup
 WORKING_DIR  = pathlib.Path(__file__).parent.parent.parent.resolve()
-DB_FILE      = WORKING_DIR.parent.parent / "local.db"
-LOG_FILE     = WORKING_DIR / "agent" / "on_call_logs" / "monitoring.jsonl"
+PROJECT_ROOT = WORKING_DIR.parent.parent
+DB_FILE      = PROJECT_ROOT / "local.db"
+LOG_FILE     = WORKING_DIR / "hermes_data" / "on_call_logs" / "monitoring.jsonl"
+
+# Load root .env
+root_env = PROJECT_ROOT / ".env"
+if root_env.exists():
+    load_dotenv(dotenv_path=root_env)
+    # AIAgent looks for OPENROUTER_API_KEY. If NOUS_API_KEY is provided in root, use it.
+    if os.getenv("NOUS_API_KEY") and not os.getenv("OPENROUTER_API_KEY"):
+        os.environ["OPENROUTER_API_KEY"] = os.environ["NOUS_API_KEY"]
+else:
+    load_dotenv() # Fallback to local
+
+# Constants for default models/urls
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+NOUS_API_BASE_URL = "https://inference-api.nousresearch.com/v1"
 
 def get_global_config(key: str) -> str:
     """Read a value from the global_config table in SQLite."""
     val = os.getenv(key, "")
-    if val:
-        return val
+    if val: return val
     try:
         if DB_FILE.exists():
             with sqlite3.connect(DB_FILE) as conn:
                 cur = conn.cursor()
                 cur.execute("SELECT value FROM global_config WHERE key = ?", (key,))
                 row = cur.fetchone()
-                if row:
-                    return row[0]
+                if row: return row[0]
     except Exception as e:
         logging.error(f"Failed to read {key} from DB: {e}")
     return ""
 
 TELEGRAM_TOKEN = get_global_config("TELEGRAM_BOT_TOKEN")
 CHAT_ID        = get_global_config("TELEGRAM_CHAT_ID")
-
-_BASE = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
+ALLOWED_USERS  = get_global_config("TELEGRAM_ALLOWED_USERS") # Comma-separated IDs
+HERMES_CMD     = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
+# ── Approval Database Interface ─────────────────────────────────────────────
 
-# ── One-shot send ──────────────────────────────────────────────────────────────
+def set_approval_status(approval_id: str, status: str, message_id: str = None, chat_id: str = None):
+    """Update or insert approval status in the DB."""
+    try:
+        with sqlite3.connect(DB_FILE, timeout=20) as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO approvals (id, status, message_id, chat_id) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(id) DO UPDATE SET "
+                "status=excluded.status, "
+                "message_id=COALESCE(excluded.message_id, message_id), "
+                "chat_id=COALESCE(excluded.chat_id, chat_id)",
+                (approval_id, status, message_id, chat_id)
+            )
+            logging.info(f"💾 DB Update: {approval_id} -> {status}")
+    except Exception as e:
+        logging.error(f"DB Error (set_approval): {e}")
 
-def send_telegram_message(text: str, chat_id: Optional[str] = None) -> bool:
-    """Send a Markdown message to Telegram. Returns True on success."""
+def get_approval_status(approval_id: str) -> str:
+    """Query current status of an approval request."""
+    try:
+        with sqlite3.connect(DB_FILE, timeout=20) as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            cur = conn.cursor()
+            cur.execute("SELECT status FROM approvals WHERE id = ?", (approval_id,))
+            row = cur.fetchone()
+            return row[0] if row else "pending"
+    except Exception as e:
+        logging.error(f"DB Read Error (get_approval): {e}")
+        return "pending"
+
+# ── Blocking Approval Mechanism ─────────────────────────────────────────────
+
+async def _request_approval_async(text: str, approval_id: str, timeout: int = 300) -> bool:
+    """Internal async logic to send a message with buttons and poll the DB."""
     if not TELEGRAM_TOKEN or not CHAT_ID:
-        logging.warning(f"[Telegram not configured] token={bool(TELEGRAM_TOKEN)} chat={bool(CHAT_ID)} msg={text}")
+        logging.warning("Telegram not configured. Auto-approving for development.")
+        return True
+
+    bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ Approve", callback_data=f"appr_{approval_id}"),
+            InlineKeyboardButton("❌ Reject", callback_data=f"rejc_{approval_id}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    try:
+        msg = await bot.send_message(
+            chat_id=CHAT_ID,
+            text=f"🛡 *HERMES NEEDS YOUR PERMISSION*\n\n{text}",
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+        set_approval_status(approval_id, "pending", message_id=str(msg.message_id), chat_id=str(msg.chat_id))
+        
+        logging.info(f"🕒 Polling DB for approval {approval_id}...")
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            status = get_approval_status(approval_id)
+            if status == "approved": 
+                logging.info(f"✅ Approval {approval_id} granted via DB.")
+                return True
+            if status == "rejected": 
+                logging.info(f"❌ Approval {approval_id} rejected via DB.")
+                return False
+            await asyncio.sleep(2)
+            
+        # Timeout handling
+        logging.warning(f"⏰ Approval {approval_id} timed out.")
+        await bot.edit_message_text(
+            chat_id=CHAT_ID,
+            message_id=msg.message_id,
+            text=f"⏰ *TIMEOUT*\n\n{text}\n\n_Auto-rejected after {timeout}s by system._"
+        )
+        set_approval_status(approval_id, "rejected")
+        return False
+    except Exception as e:
+        logging.error(f"Approval request failed for {approval_id}: {e}")
         return False
 
-    cid = chat_id or CHAT_ID
+def request_approval(text: str, approval_id: str, timeout: int = 300) -> bool:
+    """
+    Synchronous blocking call for agents. 
+    Sends message with buttons and waits for user interaction in Telegram.
+    """
+    logging.info(f"⏳ Waiting for user approval on {approval_id} via Telegram...")
     try:
-        r = httpx.post(
-            f"{_BASE}/sendMessage",
-            json={"chat_id": cid, "text": text, "parse_mode": "Markdown"},
-            timeout=10,
-        )
-        r.raise_for_status()
+        # Create a new loop for this sync call if none exists
+        return asyncio.run(_request_approval_async(text, approval_id, timeout))
+    except Exception as e:
+        logging.error(f"Error in request_approval sync wrapper: {e}")
+        return False
+
+# ── Message Utilities ──────────────────────────────────────────────────────
+
+def send_telegram_message(text: str, chat_id: Optional[str] = None) -> bool:
+    """Simplified one-shot SDK message sender."""
+    if not TELEGRAM_TOKEN or not (chat_id or CHAT_ID): return False
+    async def _send():
+        bot = telegram.Bot(token=TELEGRAM_TOKEN)
+        await bot.send_message(chat_id=(chat_id or CHAT_ID), text=text, parse_mode="Markdown")
+    try:
+        asyncio.run(_send())
         return True
     except Exception as e:
         logging.error(f"Telegram send error: {e}")
         return False
 
+# ── Bot Loop & Command Handlers ─────────────────────────────────────────────
 
-def format_incident_report(event_data: dict) -> str:
-    return (
-        f"🚨 *PRODUCTION INCIDENT DETECTED*\n"
-        f"📅 *Time:* {event_data.get('timestamp')}\n\n"
-        f"🔍 *Status:* {event_data.get('summary')}\n\n"
-        f"🛠 *Actions Taken:*\n{event_data.get('actions')}\n\n"
-        f"✅ *Result:* {event_data.get('result')}"
-    ).strip()
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 *Hermes Interactive Bot*\n\n"
+        "/status — System health & pending actions\n"
+        "/logs [n] — Last N log lines (default 30)\n"
+        "/help — This message\n\n"
+        "I will also send you approval requests with buttons for sensitive actions.",
+        parse_mode="Markdown"
+    )
 
-
-# ── Command handlers ───────────────────────────────────────────────────────────
-
-def _cmd_status(args: list, chat_id: str):
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = "🏢 *Hermes Status*\n✅ All systems operational.\n"
+    # Show last 3 approvals
     try:
-        from github_action_agent import PENDING_ROLLBACKS
-        if PENDING_ROLLBACKS:
-            lines = []
-            for run_id, info in list(PENDING_ROLLBACKS.items())[-5:]:
-                name = info["run"].get("name", "?")
-                lines.append(f"• Run #{run_id}: *{name}* → `/rollback {run_id}`")
-            msg = "⚙️ *Pending Rollbacks:*\n" + "\n".join(lines)
-        else:
-            msg = "✅ No pending rollbacks or active incidents."
-    except Exception as e:
-        msg = f"⚠️ Status error: {e}"
-    send_telegram_message(msg, chat_id)
+        with sqlite3.connect(DB_FILE, timeout=20) as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id, status FROM approvals ORDER BY created_at DESC LIMIT 3")
+            rows = cur.fetchall()
+            if rows:
+                msg += "\n🕒 *Recent Approvals:*\n"
+                for aid, status in rows:
+                    icon = "✅" if status == "approved" else "❌" if status == "rejected" else "⏳"
+                    msg += f"{icon} `{aid}`: {status}\n"
+    except Exception: pass
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
-
-def _cmd_logs(args: list, chat_id: str):
-    n = int(args[0]) if args and args[0].isdigit() else 30
+async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    n = 30
+    if context.args and context.args[0].isdigit():
+        n = int(context.args[0])
+    
     if not LOG_FILE.exists():
-        send_telegram_message("📭 No logs found yet.", chat_id)
+        await update.message.reply_text("📭 No monitoring logs found.")
         return
+    
     with open(LOG_FILE, "r") as f:
         lines = f.readlines()
-    last = lines[-n:]
-    snippet = "".join(last)[-3500:]  # Telegram limit ~4096
-    send_telegram_message(f"📄 *Last {n} log lines:*\n```\n{snippet}\n```", chat_id)
+    snippet = "".join(lines[-n:])[-3500:]
+    await update.message.reply_text(f"📄 *Last {n} log lines:*\n```\n{snippet}\n```", parse_mode="Markdown")
 
-
-def _cmd_rollback(args: list, chat_id: str):
-    if not args:
-        send_telegram_message("Usage: `/rollback <run_id>`", chat_id)
-        return
-    try:
-        run_id = int(args[0])
-    except ValueError:
-        send_telegram_message("❌ Invalid run_id — must be a number.", chat_id)
+async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """General chat interaction with Hermes."""
+    if not update.message or not update.message.text:
         return
 
-    send_telegram_message(f"🔄 Triggering rollback for run #{run_id}...", chat_id)
-    try:
-        from github_action_agent import do_rollback
-        result = do_rollback(run_id)
-        send_telegram_message(f"{result}", chat_id)
-    except Exception as e:
-        send_telegram_message(f"❌ Rollback error: {e}", chat_id)
-
-
-def _cmd_issue(args: list, chat_id: str):
-    if not args:
-        send_telegram_message("Usage: `/issue <number>`", chat_id)
+    # Security: Check allowlist
+    user_id = str(update.effective_user.id)
+    allowed_list = [u.strip() for u in ALLOWED_USERS.split(",") if u.strip()]
+    
+    # If ALLOWED_USERS is empty, we permit the default CHAT_ID
+    if allowed_list and user_id not in allowed_list:
+        logging.warning(f"🚫 Unauthorized chat attempt from {user_id}")
+        await update.message.reply_text("⛔️ You are not authorized to use this commander.")
         return
+
+    message_text = update.message.text
+    if message_text.startswith("/"):
+        return # Skip commands already handled
+
+    logging.info(f"💬 Telegram Chat: {message_text[:50]}...")
+    
+    # Send "typing..." action
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=telegram.constants.ChatAction.TYPING)
+
     try:
-        from github_api import get_issue
-        issue = get_issue(int(args[0]))
-        msg = (
-            f"📋 *Issue #{issue['number']}*\n"
-            f"*{issue['title']}*\n"
-            f"State: `{issue['state']}`\n"
-            f"[Open in GitHub]({issue['html_url']})"
+        # Diagnostic: Check API Keys
+        active_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("NOUS_API_KEY")
+        if not active_key:
+            logging.error("❌ NO API KEY FOUND in environment! (Checked OPENROUTER_API_KEY and NOUS_API_KEY)")
+        else:
+            logging.info(f"🔑 Using API key: {active_key[:6]}...{active_key[-4:]}")
+
+        # Determine base_url and default model based on key type
+        # Force Nous API if the key matches the pattern
+        is_nous = active_key and active_key.startswith("sk-2yd")
+        
+        target_base_url = NOUS_API_BASE_URL if is_nous else OPENROUTER_BASE_URL
+        fallback_model   = "Hermes-4-405B" if is_nous else "anthropic/claude-3-5-sonnet"
+        target_model     = get_global_config("MODEL") or fallback_model
+        
+        logging.info(f"📡 Target API: {target_base_url} | Model: {target_model}")
+
+        # Initialize Agent
+        agent = AIAgent(
+            model=target_model,
+            api_key=active_key,
+            base_url=target_base_url,
+            quiet_mode=True,
+            enabled_toolsets=["terminal", "file", "web"],
+            platform="telegram"
         )
-        send_telegram_message(msg, chat_id)
+        
+        # Use .chat() for a simple turn-based response
+        response = agent.chat(message_text)
+        
+        if not response or not str(response).strip():
+            response = "Hermes did not provide a message response."
+        else:
+            response = str(response)
+
+        # Telegram message limit is ~4096. Split if needed.
+        if len(response) > 4000:
+            response = response[:3900] + "\n\n... (trimmed)"
+
+        await update.message.reply_text(response)
+        
     except Exception as e:
-        send_telegram_message(f"❌ Could not fetch issue: {e}", chat_id)
+        logging.error(f"Chat error: {e}")
+        await update.message.reply_text(f"❌ Error: {str(e)}")
 
+async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processes button clicks from approval messages."""
+    query = update.callback_query
+    data = query.data
+    logging.info(f"🖱 Button clicked: {data}")
+    
+    try:
+        await query.answer()
+        
+        if data.startswith("appr_"):
+            aid = data[len("appr_"):]
+            logging.info(f"👍 Approving action: {aid}")
+            set_approval_status(aid, "approved")
+            # Update original message to show decision
+            new_text = query.message.text.replace("🛡 HERMES NEEDS YOUR PERMISSION", "✅ *ACTION APPROVED*")
+            await query.edit_message_text(text=new_text, parse_mode="Markdown")
+            
+        elif data.startswith("rejc_"):
+            aid = data[len("rejc_"):]
+            logging.info(f"👎 Rejecting action: {aid}")
+            set_approval_status(aid, "rejected")
+            new_text = query.message.text.replace("🛡 HERMES NEEDS YOUR PERMISSION", "❌ *ACTION REJECTED*")
+            await query.edit_message_text(text=new_text, parse_mode="Markdown")
+            
+    except Exception as e:
+        logging.error(f"Error in callback_handler: {e}", exc_info=True)
+        # Fallback to answer if not answered yet
+        try: await query.answer("An error occurred.")
+        except: pass
 
-def _cmd_approve(args: list, chat_id: str):
-    send_telegram_message(
-        "✅ Approval acknowledged. (Automatic remediation not queued in this session — "
-        "use `/rollback <run_id>` for specific actions.)",
-        chat_id,
-    )
-
-
-def _cmd_help(args: list, chat_id: str):
-    send_telegram_message(
-        "🤖 *Hermes Bot Commands*\n\n"
-        "`/status` — Active incidents & pending rollbacks\n"
-        "`/logs [n]` — Last N log lines (default 30)\n"
-        "`/rollback <run_id>` — Re-run failed GitHub Action jobs\n"
-        "`/issue <number>` — Show GitHub issue details\n"
-        "`/approve` — Acknowledge pending action\n"
-        "`/help` — This message",
-        chat_id,
-    )
-
-
-COMMANDS = {
-    "status":   _cmd_status,
-    "logs":     _cmd_logs,
-    "rollback": _cmd_rollback,
-    "issue":    _cmd_issue,
-    "approve":  _cmd_approve,
-    "help":     _cmd_help,
-}
-
-
-# ── Long-poll bot loop ─────────────────────────────────────────────────────────
-
-def _process_update(update: dict):
-    message = update.get("message") or update.get("edited_message")
-    if not message:
-        return
-    text    = message.get("text", "")
-    chat_id = str(message.get("chat", {}).get("id", ""))
-
-    if not text.startswith("/"):
-        return  # ignore non-commands
-
-    parts   = text.lstrip("/").split()
-    cmd     = parts[0].lower().split("@")[0]  # strip @BotName suffix
-    args    = parts[1:]
-
-    handler = COMMANDS.get(cmd)
-    if handler:
-        try:
-            handler(args, chat_id)
-        except Exception as e:
-            send_telegram_message(f"❌ Command error: {e}", chat_id)
-    else:
-        send_telegram_message(
-            f"❓ Unknown command: `/{cmd}`\nSend `/help` for a list of commands.",
-            chat_id,
-        )
-
+# ── Service Entry Point ────────────────────────────────────────────────────
 
 def start_bot():
-    """Start the Telegram long-polling bot loop (blocking)."""
+    """Main entry point for the long-running bot service."""
     if not TELEGRAM_TOKEN:
-        logging.warning("TELEGRAM_BOT_TOKEN not set — bot polling disabled.")
+        logging.warning("TELEGRAM_BOT_TOKEN not set. Interactive bot disabled.")
         return
 
-    logging.info("🤖 Telegram bot polling started...")
-    offset = 0
+    # PTB v20+ requires an event loop in the thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-    while True:
-        try:
-            r = httpx.get(
-                f"{_BASE}/getUpdates",
-                params={"offset": offset, "timeout": 30, "allowed_updates": ["message"]},
-                timeout=35,
-            )
-            r.raise_for_status()
-            updates = r.json().get("result", [])
-            for upd in updates:
-                offset = upd["update_id"] + 1
-                _process_update(upd)
-        except httpx.ReadTimeout:
-            pass  # normal for long-poll
-        except Exception as e:
-            logging.error(f"Bot loop error: {e}")
-            time.sleep(5)
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    
+    application.add_handler(CommandHandler("start", help_command))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("logs", logs_command))
+    application.add_handler(CallbackQueryHandler(callback_handler))
+    # Handle everything else as chat
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), chat_handler))
 
+    logging.info("🤖 Interactive Telegram Bot initializing...")
+    try:
+        # Explicitly allow both messages and callback queries
+        # stop_signals=None is CRITICAL when running in a background thread to avoid signal handling errors
+        application.run_polling(
+            allowed_updates=["message", "callback_query"], 
+            stop_signals=None, 
+            close_loop=False
+        )
+        logging.info("🤖 run_polling has exited.")
+    except Exception as poll_err:
+        logging.error(f"❌ Critical error in run_polling: {poll_err}", exc_info=True)
 
 def start_bot_thread() -> threading.Thread:
-    """Start bot polling in a background daemon thread."""
-    t = threading.Thread(target=start_bot, daemon=True, name="telegram-bot")
+    """Call this from webhook_receiver.py to start the bot without blocking the server."""
+    t = threading.Thread(target=start_bot, daemon=True, name="telegram-interactive-bot")
     t.start()
     return t
 
-
 if __name__ == "__main__":
-    if not TELEGRAM_TOKEN:
-        print("Set TELEGRAM_BOT_TOKEN in .env first.")
-    else:
-        send_telegram_message("🤖 Hermes Bot is online. Send /help for commands.")
-        start_bot()
+    start_bot()

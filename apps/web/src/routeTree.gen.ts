@@ -14,7 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
-import { Route as DashboardOnCallRouteImport } from './routes/dashboard.on-call'
+import { Route as DashboardChatRouteImport } from './routes/dashboard.chat'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -43,9 +43,9 @@ const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardOnCallRoute = DashboardOnCallRouteImport.update({
-  id: '/on-call',
-  path: '/on-call',
+const DashboardChatRoute = DashboardChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => DashboardRoute,
 } as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
@@ -64,7 +64,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
-  '/dashboard/on-call': typeof DashboardOnCallRoute
+  '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -74,7 +74,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
-  '/dashboard/on-call': typeof DashboardOnCallRoute
+  '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -85,7 +85,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
-  '/dashboard/on-call': typeof DashboardOnCallRoute
+  '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -97,7 +97,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/todos'
-    | '/dashboard/on-call'
+    | '/dashboard/chat'
     | '/dashboard/settings'
     | '/api/auth/$'
     | '/api/rpc/$'
@@ -107,7 +107,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/todos'
-    | '/dashboard/on-call'
+    | '/dashboard/chat'
     | '/dashboard/settings'
     | '/api/auth/$'
     | '/api/rpc/$'
@@ -117,7 +117,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/todos'
-    | '/dashboard/on-call'
+    | '/dashboard/chat'
     | '/dashboard/settings'
     | '/api/auth/$'
     | '/api/rpc/$'
@@ -169,11 +169,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSettingsRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/dashboard/on-call': {
-      id: '/dashboard/on-call'
-      path: '/on-call'
-      fullPath: '/dashboard/on-call'
-      preLoaderRoute: typeof DashboardOnCallRouteImport
+    '/dashboard/chat': {
+      id: '/dashboard/chat'
+      path: '/chat'
+      fullPath: '/dashboard/chat'
+      preLoaderRoute: typeof DashboardChatRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/api/rpc/$': {
@@ -194,12 +194,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface DashboardRouteChildren {
-  DashboardOnCallRoute: typeof DashboardOnCallRoute
+  DashboardChatRoute: typeof DashboardChatRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
-  DashboardOnCallRoute: DashboardOnCallRoute,
+  DashboardChatRoute: DashboardChatRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
 }
 

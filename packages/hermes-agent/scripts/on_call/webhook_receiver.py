@@ -24,9 +24,13 @@ import sys
 from datetime import datetime
 from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
 import uvicorn
+from run_agent import AIAgent
 
 # ── Logging Setup ────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+# Silence noisy library logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
 
 # Ensure agent scripts can be imported
 script_dir = pathlib.Path(__file__).parent.resolve()
@@ -38,9 +42,35 @@ HERMES_CMD    = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
 
 WORKING_DIR   = pathlib.Path(__file__).parent.parent.parent.resolve()
 DB_FILE       = WORKING_DIR.parent.parent / "local.db"
-LOG_DIR       = WORKING_DIR / "agent" / "on_call_logs"
+LOG_DIR       = WORKING_DIR / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE_PATH = LOG_DIR / "monitoring.jsonl"
+
+def get_global_config(key: str) -> str:
+    """Read a value from the global_config table in SQLite."""
+    val = os.getenv(key, "")
+    if val: return val
+    try:
+        if DB_FILE.exists():
+            with sqlite3.connect(DB_FILE) as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT value FROM global_config WHERE key = ?", (key,))
+                row = cur.fetchone()
+                if row: return row[0]
+    except Exception as e:
+        logging.error(f"Failed to read {key} from DB: {e}")
+    return ""
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Start the Telegram bot thread when the server starts."""
+    try:
+        from reporter import start_bot_thread
+        start_bot_thread()
+        logging.info("🤖 Telegram bot thread started via FastAPI startup event.")
+    except Exception as e:
+        logging.warning(f"Failed to start Telegram bot: {e}")
 
 
 # ── Signature verification ─────────────────────────────────────────────────────
@@ -274,17 +304,40 @@ async def get_logs():
     return {"logs": []}
 
 
+@app.post("/chat")
+async def chat_with_hermes(request: Request):
+    """Direct chat with Hermes."""
+    data = await request.json()
+    message = data.get("message")
+    if not message:
+        raise HTTPException(status_code=400, detail="Missing message")
+
+    logging.info(f"💬 Chat request: {message[:50]}...")
+    
+    logging.info(f"💬 Chat request: {message[:50]}...")
+    
+    try:
+        # Initialize Agent
+        agent = AIAgent(
+            model=get_global_config("MODEL") or "anthropic/claude-3-5-sonnet",
+            quiet_mode=True,
+            enabled_toolsets=["terminal", "file", "web"],
+            skip_memory=True # Keep stateless for API
+        )
+        
+        response = agent.chat(message)
+        
+        if not response.strip():
+            response = "Hermes did not provide a response."
+
+        return {"response": response}
+    except Exception as e:
+        logging.error(f"Chat error: {e}")
+        return {"response": f"Error: {str(e)}"}
+
+
 if __name__ == "__main__":
     port = int(os.getenv("WEBHOOK_PORT", 8090))
     logging.info(f"Starting Hermes Webhook Receiver on port {port}...")
-    # Secret verification is now handled per-repository in the request handler.
-
-    # Start Telegram bot polling in background thread
-    try:
-        from reporter import start_bot_thread
-        bot_thread = start_bot_thread()
-        logging.info("🤖 Telegram bot polling started in background.")
-    except Exception as e:
-        logging.warning(f"Telegram bot not started: {e}")
-
+    # Bot startup is handled via @app.on_event("startup")
     uvicorn.run(app, host="0.0.0.0", port=port)

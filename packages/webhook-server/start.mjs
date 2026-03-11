@@ -84,7 +84,8 @@ async function updateGithubWebhooks(newUrl) {
 }
 
 // ── 1. Start webhook_receiver.py ──────────────────────────────────────────────
-const receiver = spawn("python3", [RECEIVER_SCRIPT], {
+const VENV_PYTHON = resolve(__dirname, "../hermes-agent/.venv/bin/python");
+const receiver = spawn(VENV_PYTHON, [RECEIVER_SCRIPT], {
 	stdio: "inherit",
 	env: { ...process.env },
 });

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { Github, LayoutDashboard, PhoneCall, Settings2 } from "lucide-react";
+import { Github, LayoutDashboard, Settings2, Zap } from "lucide-react";
 import { orpc } from "@/utils/orpc";
 
 export const Route = createFileRoute("/dashboard")({
@@ -33,9 +33,14 @@ function RouteComponent() {
 			icon: <Github className="h-4 w-4" />,
 		},
 		{
-			to: "/dashboard/on-call",
-			label: "On-Call Agent",
-			icon: <PhoneCall className="h-4 w-4" />,
+			to: "/dashboard/settings",
+			label: "GitHub & Secrets",
+			icon: <Github className="h-4 w-4" />,
+		},
+		{
+			to: "/dashboard/chat",
+			label: "Commander",
+			icon: <Zap className="h-4 w-4" />,
 		},
 	];
 

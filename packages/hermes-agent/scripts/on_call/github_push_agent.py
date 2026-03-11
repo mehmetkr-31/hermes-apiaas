@@ -16,8 +16,9 @@ except ImportError:
 load_dotenv()
 
 HERMES_CMD  = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
-WORKING_DIR = pathlib.Path(__file__).parent.parent.parent.resolve()
-LOG_DIR     = WORKING_DIR / "agent" / "on_call_logs"
+AGENT_ROOT  = pathlib.Path(__file__).parent.parent.parent.resolve()
+WORKING_DIR = AGENT_ROOT.parent.parent.resolve() # Monorepo Root
+LOG_DIR     = AGENT_ROOT / "agent" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

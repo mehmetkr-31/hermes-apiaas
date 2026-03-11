@@ -39,4 +39,25 @@ export const onCallRouter = {
 			};
 		}
 	}),
+	chat: publicProcedure
+		.input(z.object({ message: z.string() }))
+		.handler(async ({ input }) => {
+			try {
+				const response = await fetch("http://localhost:8090/chat", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(input),
+				});
+
+				if (!response.ok) {
+					throw new Error("Failed to chat with agent");
+				}
+				return await response.json();
+			} catch (error) {
+				console.error("Chat error:", error);
+				return { response: "Error: Agent is not running or failed to respond." };
+			}
+		}),
 };

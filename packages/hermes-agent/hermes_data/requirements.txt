@@ -8,3 +8,4 @@ beautifulsoup4
 pydantic
 tqdm
 python-telegram-bot
+hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git

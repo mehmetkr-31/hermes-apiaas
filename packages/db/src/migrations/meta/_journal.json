@@ -15,6 +15,13 @@
       "when": 1773232798380,
       "tag": "0001_careless_gwen_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773238591830,
+      "tag": "0002_aromatic_ricochet",
+      "breakpoints": true
     }
   ]
 }

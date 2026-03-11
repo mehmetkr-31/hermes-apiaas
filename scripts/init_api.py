@@ -1,21 +1,5 @@
 #!/usr/bin/env python3
 """
-DEPRECATED: init_api.py
-========================
-This file is no longer used. As of the Hermes Agent integration, API generation
-is handled directly by Hermes Agent via manager.py:
-
-  hermes chat --query "<task>" --toolsets "browser,terminal,file,web"
-
-Hermes Agent uses its built-in browser tool to navigate real websites (solving
-the SPA/CSR rendering problem), then writes and verifies scraper_generated.py
-autonomously using its terminal and file tools.
-
-Kept here for reference only. Safe to delete.
-"""
-
-#!/usr/bin/env python3
-"""
 init_api.py — Zero-to-One API Generator for Weaver
 ===========================================================
 Takes a Target URL and a description of the desired data.
@@ -46,26 +30,13 @@ client = OpenAI(
 
 def fetch_dom(url: str) -> str:
     print(f"  [+] Fetching DOM from {url}...")
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9,tr-TR;q=0.8,tr;q=0.7",
-    }
-    r = httpx.get(url, headers=headers, timeout=15, follow_redirects=True)
-    
-    if r.status_code != 200:
-        print(f"  [~] Warning: Got HTTP {r.status_code}, but proceeding to parse HTML anyway.")
-        
+    r = httpx.get(url, timeout=10)
+    r.raise_for_status()
+    # Strip scripts and styles to save tokens
     soup = BeautifulSoup(r.text, "html.parser")
-    
-    # Strip non-content bloat to keep it reasonable
-    for tag in soup(["script", "style", "svg", "path", "meta", "noscript"]):
+    for tag in soup(["script", "style", "nav", "footer", "header"]):
         tag.decompose()
-        
-    # User requested to send the ENTIRE HTML rather than trying to guess containers
-    text = str(soup)
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return "\n".join(lines)
+    return str(soup)
 
 def build_prompt(url: str, schema_desc: str, html: str) -> str:
     return f"""
@@ -83,19 +54,14 @@ def build_prompt(url: str, schema_desc: str, html: str) -> str:
        - `GET /health` that checks if the scraping logic still returns > 0 results.
     4. Write a function named `scrape_data(html: str) -> list[dict]` that holds the core Beautifulsoup selector logic.
     5. The DOM structure provided below is a minified representation of the target URL.
-    6. CRITICAL: Ignore navigation menus, header dropdowns, and category links. Focus ONLY on the primary product/item grid or list in the main content area.
-        7. Ensure the code is production-ready, imports all needed libraries, handles basic exceptions, and adds CORSMiddleware.
-    8. VERY IMPORTANT: If the HTML appears to be a Single Page Application (SPA) where data is missing, hidden, lazy-loaded, or represented by skeleton placeholders (like `placeholder__item`), DO NOT generate a scraper that returns an array of nulls. Instead, the endpoint MUST return a single JSON object with an `error` field explaining: "This website uses Client-Side Rendering (SPA) or anti-bot protection. The HTML only contains empty placeholders, so the products cannot be extracted from static HTML." 
-    7. IMPORTANT: The code MUST be compatible with Python 3.9.6. Do NOT use 3.10+ features like the `|` union operator for types (use `Optional` or `Union` from `typing` instead).
-    8. CRITICAL: ALL httpx.get() calls MUST use `follow_redirects=True` AND a generic browser `User-Agent` header to avoid 403 Forbidden errors. DO NOT use `response.raise_for_status()`, instead check `response.is_success` and if False, return an empty list `[]`.
-    9. CRITICAL: Handle parsing exceptions gracefully PER-FIELD. Use `try-except` around int/float cast conversions (e.g., points, comments). If a specific element is missing or fails to parse, default to 0 or "" and continue scraping the rest of the list. DO NOT crash the entire endpoint.
+    6. Ensure the code is production-ready, imports all needed libraries, handles basic exceptions, and adds CORSMiddleware.
     
     OUTPUT FORMAT:
     Output ONLY valid Python code. NO markdown formatting blocks like ```python. Just raw code.
     
     HTML DOM OF TARGET:
     <html_snippet>
-    {html}
+    {html[:8000]}
     </html_snippet>
     """
 

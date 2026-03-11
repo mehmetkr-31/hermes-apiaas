@@ -16,7 +16,7 @@
 		"db:generate": "turbo -F @hermes-on-call/db db:generate",
 		"db:migrate": "turbo -F @hermes-on-call/db db:migrate",
 		"db:local": "turbo -F @hermes-on-call/db db:local",
-		"check": "biome check --write ."
+		"check": "biome check --write apps/ packages/api/src/ packages/ui/src/"
 	},
 	"dependencies": {
 		"@hermes-on-call/env": "workspace:*",

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-dotenv
+httpx
+psutil
+openai
+beautifulsoup4
+pydantic
+tqdm
+python-telegram-bot

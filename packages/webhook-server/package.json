@@ -1,0 +1,8 @@
+{
+	"name": "@hermes-on-call/webhook-server",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "node start.mjs"
+	}
+}

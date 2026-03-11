@@ -1,13 +1,20 @@
 {
-	"version": "7",
-	"dialect": "sqlite",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "6",
-			"when": 1773222045994,
-			"tag": "0000_ambiguous_dracula",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1773222045994,
+      "tag": "0000_ambiguous_dracula",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773232798380,
+      "tag": "0001_careless_gwen_stacy",
+      "breakpoints": true
+    }
+  ]
 }

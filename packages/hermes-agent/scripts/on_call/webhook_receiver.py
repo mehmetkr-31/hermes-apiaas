@@ -1,107 +1,290 @@
 #!/usr/bin/env python3
+"""
+Hermes Webhook Receiver — GitHub events listener.
+
+Endpoints:
+  POST /github/webhook   → GitHub events (Issues, PRs, Workflow runs)
+  GET  /logs             → stream logs
+  GET  /health           → healthcheck
+
+GitHub events handled:
+  issues         (action: opened)           → github_issue_agent
+  pull_request   (action: opened / sync)    → github_pr_agent
+  workflow_run   (action: completed, conclusion: failure) → github_action_agent
+"""
 import os
+import hmac
+import hashlib
 import subprocess
 import logging
 import pathlib
-from fastapi import FastAPI, BackgroundTasks, Request
-import uvicorn
+import sqlite3
+import json
+import sys
 from datetime import datetime
+from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
+import uvicorn
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+# ── Logging Setup ────────────────────────────
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+# Ensure agent scripts can be imported
+script_dir = pathlib.Path(__file__).parent.resolve()
+if str(script_dir) not in sys.path:
+    sys.path.append(str(script_dir))
 
 app = FastAPI(title="Hermes Webhook Receiver")
-HERMES_CMD = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
+HERMES_CMD    = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
 
-def trigger_hermes(payload: dict):
-    logging.info(f"🚨 Webhook received! Triggering Hermes for incident...")
-    
-    working_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
-    # Format the payload into a prompt for Hermes with Guidance for Code Analysis
-    issue_details = str(payload)[:1000]
-    task_prompt = f"""SIMULATED INCIDENT TRIGGER:
-{issue_details}
+WORKING_DIR   = pathlib.Path(__file__).parent.parent.parent.resolve()
+DB_FILE       = WORKING_DIR.parent.parent / "local.db"
+LOG_DIR       = WORKING_DIR / "agent" / "on_call_logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE_PATH = LOG_DIR / "monitoring.jsonl"
 
-TASK:
-1. INVESTIGATE: Use provided mock URL and remote tools (browser, terminal network checks).
-2. ANALYZE CODE: You have access to the source code in {working_dir}. If the issue seems related to application logic, search and analyze the code in this directory to find the root cause.
-3. ISOLATION RULES: 
-   - DO NOT search the local disk for "environment junk" (e.g., old logs, temp files).
-   - ONLY analyze source code files (.py, .js, .ts, .tsx) in the project directory.
-   - DO NOT attempt to fix the local development environment or Agent's own logs.
-4. REPORT: Identify the specific file and line that might be causing the issue (if applicable) and suggest a fix.
-5. Focus on infrastructure logic and application source code.
-6. Report back via Telegram."""
-    
+
+# ── Signature verification ─────────────────────────────────────────────────────
+
+def _get_webhook_secret_for_repo(repo_full_name: str) -> str:
+    """Fetch the webhook secret for a specific repo from the database."""
     try:
-        # Move to the packages/hermes-agent directory to ensure paths match
-        working_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
-        log_dir = working_dir / "agent" / "on_call_logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_file_path = log_dir / "monitoring.jsonl"
-        
-        # Prepare environment
-        env = os.environ.copy()
-        
-        # Use Popen to handle auto-approval of sessions via stdin
-        proc = subprocess.Popen(
-            [HERMES_CMD, "chat", 
-             "-q", task_prompt,
-             "--model", "Hermes-4-405B",
-             "--toolsets", "browser,terminal,file,web"
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, # Merge stderr into stdout for easier streaming
-            stdin=subprocess.PIPE,
-            text=True,
-            env=env,
-            bufsize=1,
-            cwd=str(working_dir)
-        )
-        
-        # Auto-approve prompts by sending 's\n' (session approval)
-        try:
-            proc.stdin.write("s\n" * 10)
-            proc.stdin.flush()
-        except:
-            pass
-            
-        # Stream the output to the log file in real time
-        with open(log_file_path, "a", buffering=1) as f:
-            f.write(f"\n🚨 Webhook triggered Hermes @ {datetime.now().isoformat()}:\n")
-            f.write(f"Query: {task_prompt}\n")
-            f.write("─" * 40 + "\n")
-            
-            for line in proc.stdout:
-                if line:
-                    f.write(line)
-                    f.flush() # Ensure it's written immediately for the UI to see
-        
-        proc.wait()
-        logging.info(f"✅ Hermes Task Finished. Output logged to {log_file_path}")
-        
+        if DB_FILE.exists():
+            with sqlite3.connect(DB_FILE) as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT webhook_secret FROM hermes_project WHERE repo_full_name = ?", (repo_full_name,))
+                row = cur.fetchone()
+                if row:
+                    logging.info(f"🔑 Secret found for {repo_full_name} in DB.")
+                    return row[0]
+        logging.warning(f"⚠️ No secret found for {repo_full_name} in DB.")
     except Exception as e:
-        logging.error(f"⚠️ Hermes Task Error: {str(e)}")
+        logging.error(f"Failed to read webhook_secret from DB for {repo_full_name}: {e}")
+    return ""
 
-@app.post("/webhook")
-async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
-    try:
-        payload = await request.json()
-    except:
-        payload = {"raw_body": (await request.body()).decode('utf-8')}
+def _verify_github_signature(body: bytes, sig_header: str, payload: dict) -> bool:
+    """HMAC-SHA256 verification for GitHub webhooks."""
+    repo_full_name = payload.get("repository", {}).get("full_name")
+    if not repo_full_name:
+        logging.warning("No repository found in webhook payload — skipping signature check!")
+        return True # Or False if we want to be strict
+        
+    secret = _get_webhook_secret_for_repo(repo_full_name)
     
-    background_tasks.add_task(trigger_hermes, payload)
-    return {"status": "accepted", "message": "Hermes incident response triggered in background."}
+    if not secret:
+        logging.warning(f"Webhook secret not found for {repo_full_name} in DB — skipping signature check!")
+        return True
+
+    if not sig_header or not sig_header.startswith("sha256="):
+        logging.warning("❌ Missing or invalid X-Hub-Signature-256 header.")
+        return False
+        
+    expected = "sha256=" + hmac.new(
+        secret.encode(), body, hashlib.sha256
+    ).hexdigest()
+    
+    match = hmac.compare_digest(expected, sig_header)
+    if not match:
+        logging.error(f"❌ Signature MISMATCH for {repo_full_name}!")
+        logging.debug(f"Expected: {expected}")
+        logging.debug(f"Received: {sig_header}")
+    else:
+        logging.info(f"✅ Signature verified for {repo_full_name}")
+        
+    return match
+
+
+# ── GitHub event handlers ──────────────────────────────────────────────────────
+
+def _handle_github_issue(payload: dict, owner: str = None, repo: str = None):
+    issue  = payload.get("issue", {})
+    number = issue.get("number")
+    if not number:
+        return
+    title  = issue.get("title", "")
+    body   = issue.get("body", "") or ""
+    logging.info(f"📋 GitHub Issue #{number} opened in {owner}/{repo} — dispatching Issue Agent")
+    _log_github_event("issue", number, payload)
+    try:
+        from github_issue_agent import handle_issue
+        handle_issue(number, title=title, body=body, owner=owner, repo=repo)
+    except Exception as e:
+        logging.error(f"Issue agent failed: {e}")
+
+
+def _handle_github_pr(payload: dict, owner: str = None, repo: str = None):
+    pr     = payload.get("pull_request", {})
+    number = pr.get("number")
+    if not number:
+        return
+    title  = pr.get("title", "")
+    author = pr.get("user", {}).get("login", "")
+    logging.info(f"🔀 GitHub PR #{number} in {owner}/{repo} — dispatching PR Agent")
+    _log_github_event("pr", number, payload)
+    try:
+        from github_pr_agent import handle_pr
+        handle_pr(number, title=title, author=author, owner=owner, repo=repo)
+    except Exception as e:
+        logging.error(f"PR agent failed: {e}")
+
+
+def _handle_github_action(payload: dict, owner: str = None, repo: str = None):
+    run        = payload.get("workflow_run", {})
+    run_id     = run.get("id")
+    conclusion = run.get("conclusion")
+    if not run_id or conclusion != "failure":
+        return
+    workflow_name = run.get("name", "Workflow")
+    branch        = run.get("head_branch", "?")
+    logging.info(f"⚙️ GitHub Action run #{run_id} failed in {owner}/{repo} — dispatching Action Agent")
+    _log_github_event("action", run_id, payload)
+    try:
+        from github_action_agent import handle_failed_action
+        handle_failed_action(run_id, workflow_name=workflow_name, branch=branch, owner=owner, repo=repo)
+    except Exception as e:
+        logging.error(f"Action agent failed: {e}")
+
+
+
+def _log_github_event(event_type: str, number: int, payload: dict):
+    """Append a structured log line for the dashboard to display."""
+    action = payload.get("action", "")
+    title  = (
+        payload.get("issue", {}).get("title")
+        or payload.get("pull_request", {}).get("title")
+        or payload.get("workflow_run", {}).get("name")
+        or payload.get("push", {}).get("title")
+        or "?"
+    )
+    html_url = (
+        payload.get("issue", {}).get("html_url")
+        or payload.get("pull_request", {}).get("html_url")
+        or payload.get("workflow_run", {}).get("html_url")
+        or ""
+    )
+    
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    icon = "📋" if event_type == "issue" else "🔀" if event_type == "pr" else "🚀"
+    
+    # Simple, high-contrast log line for the dashboard
+    line = f"[{timestamp}] {icon} {event_type.upper():<8} | {action:<12} | {title}\n"
+    
+    with open(LOG_FILE_PATH, "a") as f:
+        f.write(line)
+
+
+# ── Routes ─────────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
+
+@app.post("/github/webhook")
+async def github_webhook(request: Request, background_tasks: BackgroundTasks):
+    """GitHub webhook receiver with HMAC validation."""
+    body        = await request.body()
+    sig_header  = request.headers.get("X-Hub-Signature-256", "")
+    event_type  = request.headers.get("X-GitHub-Event", "")
+
+    try:
+        payload = __import__("json").loads(body)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    if not _verify_github_signature(body, sig_header, payload):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    action = payload.get("action", "")
+    logging.info(f"📥 GitHub event: {event_type} / action: {action}")
+
+    # Route to the correct agent
+    repo_info = payload.get("repository", {})
+    full_name = repo_info.get("full_name", "")
+    
+    if "/" in full_name:
+        owner, repo_name = full_name.split("/", 1)
+    else:
+        owner = repo_info.get("owner", {}).get("login")
+        repo_name = repo_info.get("name")
+    
+    logging.info(f"📍 Extracted Repository: {owner}/{repo_name} (from full_name: {full_name})")
+
+    if event_type == "issues" and action == "opened":
+        background_tasks.add_task(_handle_github_issue, payload, owner, repo_name)
+
+    elif event_type == "pull_request" and action in ("opened", "synchronize"):
+        background_tasks.add_task(_handle_github_pr, payload, owner, repo_name)
+
+    elif event_type == "workflow_run" and action == "completed":
+        background_tasks.add_task(_handle_github_action, payload, owner, repo_name)
+        
+    elif event_type == "push":
+        branch     = payload.get("ref", "").replace("refs/heads/", "")
+        pusher     = payload.get("pusher", {}).get("name", "Someone")
+        
+        commits = payload.get("commits", [])
+        if commits:
+            head_commit = commits[-1]
+            head_commit_msg = head_commit.get("message", "No commit message")
+            head_commit_url = head_commit.get("url", "")
+        else:
+            head_commit = payload.get("head_commit") or {}
+            head_commit_msg = head_commit.get("message", "No commit message")
+            head_commit_url = head_commit.get("url", "")
+
+        title = f"Push to {branch}: {head_commit_msg}"
+        
+        logging.info(f"🚀 Detected {event_type} event to branch {branch} in {owner}/{repo_name}. Dispatching Push Agent.")
+        
+        # Override payload temporarily just for the logger so it looks nice
+        payload_for_logger = {"push": {"title": title, "html_url": head_commit_url}}
+        _log_github_event(event_type, 0, payload_for_logger)
+        
+        try:
+            from github_push_agent import handle_push
+            background_tasks.add_task(handle_push, branch, pusher, head_commit_msg, head_commit_url, owner, repo_name)
+        except Exception as e:
+            logging.error(f"Push agent failed: {e}")
+            
+    elif event_type == "create":
+        ref_type = payload.get("ref_type")
+        ref = payload.get("ref")
+        msg = f"New {ref_type} created: {ref}"
+        logging.info(f"🚀 {msg}")
+        _log_github_event(event_type, 0, {"push": {"title": msg, "html_url": ""}})
+
+    elif event_type == "delete":
+        ref_type = payload.get("ref_type")
+        ref = payload.get("ref")
+        msg = f"{ref_type.capitalize()} deleted: {ref}"
+        logging.info(f"🗑️ {msg}")
+        _log_github_event(event_type, 0, {"push": {"title": msg, "html_url": ""}})
+
+    else:
+        logging.info(f"ℹ️ Unhandled GitHub event: {event_type}/{action} — ignoring.")
+
+    return {"status": "accepted", "event": event_type, "action": action}
+
 
 @app.get("/logs")
 async def get_logs():
-    log_file = pathlib.Path(__file__).parent.parent.parent.resolve() / "agent" / "on_call_logs" / "monitoring.jsonl"
-    if log_file.exists():
-        with open(log_file, "r") as f:
+    if LOG_FILE_PATH.exists():
+        with open(LOG_FILE_PATH, "r") as f:
             return {"logs": f.readlines()}
     return {"logs": []}
+
 
 if __name__ == "__main__":
     port = int(os.getenv("WEBHOOK_PORT", 8090))
     logging.info(f"Starting Hermes Webhook Receiver on port {port}...")
+    # Secret verification is now handled per-repository in the request handler.
+
+    # Start Telegram bot polling in background thread
+    try:
+        from reporter import start_bot_thread
+        bot_thread = start_bot_thread()
+        logging.info("🤖 Telegram bot polling started in background.")
+    except Exception as e:
+        logging.warning(f"Telegram bot not started: {e}")
+
     uvicorn.run(app, host="0.0.0.0", port=port)

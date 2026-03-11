@@ -51,6 +51,7 @@ Body:
 YOUR TASK:
 1. Research the problem:
    - Search the codebase (THIS TARGET PROJECT at {repo_path}) for related code using file tools.
+   - ⚠️ IMPORTANT: If you find {repo_path} is empty (only has .git), do NOT hallucinate code. Instead, use your terminal tool (e.g. `gh repo view {owner}/{repo}` or `git remote`) to verify if the repository is actually empty on GitHub or if there was a cloning issue.
    - Use web_search if needed.
 2. Formulate a detailed analysis.
 3. Wrap your final analysis with these exact tags: [ANALYSIS_START] and [ANALYSIS_END].

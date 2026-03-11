@@ -7,7 +7,7 @@ export function Logo({ className = "h-6 w-auto" }: { className?: string }) {
 			fill="none"
 			role="img"
 		>
-			<title>APIaaS Logo</title>
+			<title>AGIaaS Logo</title>
 			<defs>
 				<linearGradient id="logoGradient" x1="10%" y1="10%" x2="90%" y2="90%">
 					<stop offset="0%" stopColor="hsl(var(--primary))" />

@@ -1,0 +1,24 @@
+{
+	"name": "@hermes-on-call/auth",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {},
+	"dependencies": {
+		"@hermes-on-call/db": "workspace:*",
+		"@hermes-on-call/env": "workspace:*",
+		"better-auth": "catalog:",
+		"dotenv": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@hermes-on-call/config": "workspace:*",
+		"typescript": "^5"
+	}
+}

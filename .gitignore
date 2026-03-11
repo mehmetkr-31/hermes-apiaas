@@ -9,3 +9,12 @@ agent/state.json
 agent/heal_log.jsonl
 .DS_Store
 demo.cast
+
+# Node
+node_modules/
+dist/
+build/
+.turbo/
+.cache/
+.next/
+*.tsbuildinfo

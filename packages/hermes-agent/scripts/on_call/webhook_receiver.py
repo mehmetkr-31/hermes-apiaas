@@ -24,6 +24,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
 import uvicorn
 from run_agent import AIAgent
+from reporter import request_approval, NOUS_API_BASE_URL, OPENROUTER_BASE_URL
 
 # ── Logging Setup ────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -43,6 +44,7 @@ DB_FILE       = WORKING_DIR.parent.parent / "local.db"
 LOG_DIR       = WORKING_DIR / "agent" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE_PATH = LOG_DIR / "monitoring.jsonl"
+DATA_DIR      = WORKING_DIR.parent.parent.resolve() / ".tmp"
 
 def get_global_config(key: str) -> str:
     """Read a value from the global_config table in SQLite."""
@@ -314,7 +316,6 @@ async def chat_with_hermes(request: Request):
         raise HTTPException(status_code=400, detail="Missing message")
 
     logging.info(f"💬 Chat request (API): {message[:50]}...")
-    
     try:
         # Diagnostic: Check API Keys
         active_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("NOUS_API_KEY")
@@ -325,6 +326,53 @@ async def chat_with_hermes(request: Request):
         fallback_model   = "Hermes-4-405B" if is_nous else "anthropic/claude-3-5-sonnet"
         target_model     = get_global_config("MODEL") or fallback_model
 
+        # Fetch projects to provide context
+        projects = []
+        try:
+            if DB_FILE.exists():
+                with sqlite3.connect(DB_FILE) as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT repo_full_name FROM hermes_project WHERE is_active = 1")
+                    projects = [row[0] for row in cur.fetchall()]
+        except Exception as projects_err:
+            logging.warning(f"Failed to fetch projects for chat context: {projects_err}")
+
+        project_context = ""
+        if projects:
+            project_context = f"\n\nRegistered repositories you can manage (located in {DATA_DIR}):\n- " + "\n- ".join(projects)
+        
+        logging.info(f"Loaded {len(projects)} projects for chat context: {projects}")
+
+        system_prompt = f"""# HERMES COMMANDER: GITHUB-NATIVE OPERATIONAL DIRECTIVE
+
+You are Hermes Commander, a high-level autonomous agent responsible for maintaining and fixing remote software systems via GitHub.
+
+## MISSION CONTEXT
+You manage the following registered repositories: {project_context}
+
+## OPERATIONAL DIRECTIVE: "GITHUB-NATIVE RESEARCH"
+1. **ISOLATION**: You are FORBIDDEN from exploring the local filesystem (e.g., `packages/`, `apps/`, `node_modules/`). The local codebase is your OWN dashboard; do NOT confuse it with the projects you manage.
+2. **RESEARCH**: Use the `terminal` tool to investigate target repositories strictly via `gh` CLI or GitHub API:
+   - Use `gh repo view [owner]/[repo] --web` to see repo info.
+   - Use `gh api repos/[owner]/[repo]/contents/[path]` to read files.
+   - Use `gh issue list` and `gh pr list` to understand current state.
+3. **ONLY** if you are tasked with a code fix and need to modify files, clone the repository to a temporary path under `{DATA_DIR}`:
+   - `gh repo clone [owner]/[repo] {DATA_DIR}/[owner]/[repo]`
+
+## ACTION WORKFLOWS
+- **Incident reporting**: Research via `gh api`, then ask: "I've analyzed the bug in [repo]. Should I open an issue?"
+- **Remediation**: If approved, clone to `{DATA_DIR}`, fix the code, run tests, then ask: "Fix implemented in [repo]. Should I create a Pull Request?"
+
+## SAFETY & APPROVAL PROTOCOL (STRICT)
+- **ZERO MUTATION WITHOUT CONSENT**: You are FORBIDDEN from running `gh issue create`, `gh pr create`, `git push`, or any command that commit/pushes code without an explicit "yes", "proceed", or "approve" from the user in the *current* conversation turn.
+- **CLEAR PROPOSALS**: State the Target Repository and a summary of the change before asking for confirmation.
+
+You are decisive, proactive, and strictly adhere to GitHub-native investigation tools.
+"""
+
+        # Session ID based on user or just a generic 'web-commander'
+        session_id = data.get("session_id", "web-commander")
+
         # Initialize Agent
         agent = AIAgent(
             model=target_model,
@@ -332,10 +380,15 @@ async def chat_with_hermes(request: Request):
             base_url=target_base_url,
             quiet_mode=True,
             enabled_toolsets=["terminal", "file", "web"],
-            skip_memory=True # Keep stateless for direct API calls
+            skip_memory=False, # Enable memory for multi-turn proactive flows
+            session_id=session_id,
+            ephemeral_system_prompt=system_prompt,
+            platform="web-commander"
         )
         
-        response = agent.chat(message)
+        # We use run_conversation to handle memory automatically
+        result = agent.run_conversation(message)
+        response = result.get("final_response", "")
         
         if not response or not str(response).strip():
             response = "Hermes did not provide a response."

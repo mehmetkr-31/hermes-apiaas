@@ -35,6 +35,7 @@ WORKING_DIR  = pathlib.Path(__file__).parent.parent.parent.resolve()
 PROJECT_ROOT = WORKING_DIR.parent.parent
 DB_FILE      = PROJECT_ROOT / "local.db"
 LOG_FILE     = WORKING_DIR / "agent" / "on_call_logs" / "monitoring.jsonl"
+DATA_DIR      = PROJECT_ROOT.parent.resolve() / ".tmp"
 
 # Load root .env
 root_env = PROJECT_ROOT / ".env"
@@ -297,6 +298,50 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fallback_model   = "Hermes-4-405B" if is_nous else "anthropic/claude-3-5-sonnet"
         target_model     = get_global_config("MODEL") or fallback_model
         
+        # Fetch projects to provide context
+        projects = []
+        try:
+            if DB_FILE.exists():
+                with sqlite3.connect(DB_FILE) as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT repo_full_name FROM hermes_project WHERE is_active = 1")
+                    projects = [row[0] for row in cur.fetchall()]
+        except Exception as projects_err:
+            logging.warning(f"Failed to fetch projects for Telegram context: {projects_err}")
+
+        project_context = ""
+        if projects:
+            project_context = f"\n\nRegistered repositories you can manage (located in {DATA_DIR}):\n- " + "\n- ".join(projects)
+        
+        logging.info(f"Loaded {len(projects)} projects for Telegram context: {projects}")
+
+        system_prompt = f"""# HERMES COMMANDER: GITHUB-NATIVE OPERATIONAL DIRECTIVE
+
+You are Hermes Commander, a high-level autonomous agent responsible for maintaining and fixing remote software systems via GitHub.
+
+## MISSION CONTEXT
+You manage the following registered repositories: {project_context}
+
+## OPERATIONAL DIRECTIVE: "GITHUB-NATIVE RESEARCH"
+1. **ISOLATION**: You are FORBIDDEN from exploring the local filesystem (e.g., `packages/`, `apps/`, `node_modules/`). The local codebase is your OWN dashboard; do NOT confuse it with the projects you manage.
+2. **RESEARCH**: Use the `terminal` tool to investigate target repositories strictly via `gh` CLI or GitHub API:
+   - Use `gh repo view [owner]/[repo] --web` to see repo info.
+   - Use `gh api repos/[owner]/[repo]/contents/[path]` to read files.
+   - Use `gh issue list` and `gh pr list` to understand current state.
+3. **ONLY** if you are tasked with a code fix and need to modify files, clone the repository to a temporary path under `{DATA_DIR}`:
+   - `gh repo clone [owner]/[repo] {DATA_DIR}/[owner]/[repo]`
+
+## ACTION WORKFLOWS
+- **Incident reporting**: Research via `gh api`, then ask: "I've analyzed the bug in [repo]. Should I open an issue?"
+- **Remediation**: If approved, clone to `{DATA_DIR}`, fix the code, run tests, then ask: "Fix implemented in [repo]. Should I create a Pull Request?"
+
+## SAFETY & APPROVAL PROTOCOL (STRICT)
+- **ZERO MUTATION WITHOUT CONSENT**: You are FORBIDDEN from running `gh issue create`, `gh pr create`, `git push`, or any command that commit/pushes code without an explicit "yes", "proceed", or "approve" from the user in the *current* conversation turn.
+- **CLEAR PROPOSALS**: State the Target Repository and a summary of the change before asking for confirmation.
+
+You are decisive, proactive, and strictly adhere to GitHub-native investigation tools.
+"""
+
         # Get history
         chat_id_str = str(update.effective_chat.id)
         history = sessions.get_history(chat_id_str)
@@ -308,11 +353,11 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             base_url=target_base_url,
             quiet_mode=True,
             enabled_toolsets=["terminal", "file", "web"],
+            skip_memory=False, # Enable memory for proactive flows
+            session_id=f"tg-{chat_id_str}",
+            ephemeral_system_prompt=system_prompt,
             platform="telegram"
         )
-        
-        # Notify user of tool progress via typing action or status msg if possible
-        # For simplicity, we stick to typing for now
         
         # Use .run_conversation for multi-turn
         result = agent.run_conversation(

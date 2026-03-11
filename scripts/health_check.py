@@ -30,7 +30,7 @@ import argparse
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-
+from typing import List, Optional
 import httpx
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -94,7 +94,7 @@ def check_health() -> dict:
 
 # ── DOM Fetching ──────────────────────────────────────────────────────────────
 # BUG 1 FIX: fetch_dom() now returns None on failure instead of crashing the loop
-def fetch_dom() -> str | None:
+def fetch_dom() -> Optional[str]:
     try:
         r = httpx.get(TARGET_URL, timeout=10)
         r.raise_for_status()

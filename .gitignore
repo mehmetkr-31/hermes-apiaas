@@ -18,6 +18,15 @@ build/
 .cache/
 .next/
 *.tsbuildinfo
+# Database
 *.local.db
 *.local.db-shm
 *.local.db-wal
+*.db
+local.db
+
+# Logs & Data
+*.log
+*.jsonl
+hermes_data/
+.tmp/

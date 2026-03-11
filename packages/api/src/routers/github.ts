@@ -1,4 +1,4 @@
-import { db, schema } from "@agiaas/db";
+import { db, encrypt, schema } from "@agiaas/db";
 
 const { hermesProject, globalConfig } = schema;
 
@@ -23,8 +23,9 @@ export const githubRouter = {
 			}),
 		)
 		.handler(async ({ input }) => {
-			const { repoFullName, webhookSecret, telegramChatId } = input;
+			const { repoFullName, webhookSecret: rawSecret, telegramChatId } = input;
 			const id = crypto.randomUUID();
+			const webhookSecret = encrypt(rawSecret);
 
 			await db
 				.insert(hermesProject)
@@ -38,7 +39,7 @@ export const githubRouter = {
 				.onConflictDoUpdate({
 					target: hermesProject.repoFullName,
 					set: {
-						webhookSecret,
+						webhookSecret: encrypt(rawSecret),
 						telegramChatId,
 						isActive: true,
 					},
@@ -70,12 +71,12 @@ export const githubRouter = {
 				.insert(globalConfig)
 				.values({
 					key: "TELEGRAM_BOT_TOKEN",
-					value: input.telegramBotToken,
+					value: encrypt(input.telegramBotToken),
 				})
 				.onConflictDoUpdate({
 					target: globalConfig.key,
 					set: {
-						value: input.telegramBotToken,
+						value: encrypt(input.telegramBotToken),
 					},
 				});
 			return { success: true };

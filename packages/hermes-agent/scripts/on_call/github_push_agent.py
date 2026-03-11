@@ -23,7 +23,7 @@ load_dotenv()
 HERMES_CMD  = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
 AGENT_ROOT  = pathlib.Path(__file__).parent.parent.parent.resolve()
 WORKING_DIR = AGENT_ROOT.parent.parent.resolve() # Monorepo Root
-LOG_DIR     = AGENT_ROOT / "agent" / "on_call_logs"
+LOG_DIR     = AGENT_ROOT / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -44,6 +44,9 @@ Diff URL: {head_commit_url}
 
 YOUR TASKS (in order):
 1. Use the terminal tool with git to investigate the recent changes if necessary.
+   - ⚡ CRITICAL PEFORMANCE RULE: The repository is ALREADY cloned to your local filesystem.
+   - You MUST use fast local terminal commands like `ls -la`, `cat`, `grep`, or file tools to read the code.
+   - Do NOT use slow `gh api` or network calls to read files or directory contents unless absolutely necessary.
 2. Review the pushed code for linting, build errors, or potential bugs.
 3. Send a brief summary of the changes and build/check status to Telegram via the messaging tool or just a simple summary.
 """

@@ -12,7 +12,7 @@ from reporter import send_telegram_message, request_approval, get_global_config,
 load_dotenv()
 AGENT_ROOT  = pathlib.Path(__file__).parent.parent.parent.resolve()
 DATA_DIR    = AGENT_ROOT.parent.parent.resolve() / ".tmp"
-LOG_DIR     = AGENT_ROOT / "agent" / "on_call_logs"
+LOG_DIR     = AGENT_ROOT / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -52,6 +52,9 @@ Run ID: {run_id}
 YOUR TASK:
 1. Inspect the failure: Use `gh run view {run_id} --log-failed` to see logs.
 2. Diagnose the root cause by searching the codebase at {repo_path}.
+   - ⚡ CRITICAL PEFORMANCE RULE: The repository is ALREADY cloned to your local filesystem.
+   - You MUST use fast local terminal commands like `ls -la {repo_path}`, `cat`, `grep`, or file tools to read the code.
+   - Do NOT use slow `gh api` or network calls to read files or directory contents unless absolutely necessary.
 3. Wrap your diagnosis with these exact tags: [DIAGNOSIS_START] and [DIAGNOSIS_END].
    (Do NOT use these tags in your earlier reasoning or thoughts).
    I will present this to the human for approval before rerunning.

@@ -24,6 +24,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
 import uvicorn
 from run_agent import AIAgent
+from encryption_utils import decrypt
 from reporter import request_approval, NOUS_API_BASE_URL, OPENROUTER_BASE_URL
 
 # ── Logging Setup ────────────────────────────
@@ -41,7 +42,7 @@ HERMES_CMD    = os.getenv("HERMES_CMD", "hermes")
 
 WORKING_DIR   = pathlib.Path(__file__).parent.parent.parent.resolve()
 DB_FILE       = WORKING_DIR.parent.parent / "local.db"
-LOG_DIR       = WORKING_DIR / "agent" / "on_call_logs"
+LOG_DIR       = WORKING_DIR / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE_PATH = LOG_DIR / "monitoring.jsonl"
 DATA_DIR      = WORKING_DIR.parent.parent.resolve() / ".tmp"
@@ -88,7 +89,7 @@ def _get_webhook_secret_for_repo(repo_full_name: str) -> str:
                 row = cur.fetchone()
                 if row:
                     logging.info(f"🔑 Secret found for {repo_full_name} in DB.")
-                    return row[0]
+                    return decrypt(row[0])
         logging.warning(f"⚠️ No secret found for {repo_full_name} in DB.")
     except Exception as e:
         logging.error(f"Failed to read webhook_secret from DB for {repo_full_name}: {e}")

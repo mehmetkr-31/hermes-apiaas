@@ -68,7 +68,7 @@ def get_global_config(key: str) -> str:
 TELEGRAM_TOKEN = get_global_config("TELEGRAM_BOT_TOKEN")
 CHAT_ID        = get_global_config("TELEGRAM_CHAT_ID")
 ALLOWED_USERS  = get_global_config("TELEGRAM_ALLOWED_USERS") # Comma-separated IDs
-HERMES_CMD     = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
+HERMES_CMD     = os.getenv("HERMES_CMD", "hermes")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 

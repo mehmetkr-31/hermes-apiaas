@@ -1,19 +1,13 @@
 # hermes-on-call
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Self, ORPC, and more.
+An autonomous incident management and on-call agent system built with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack).
 
 ## Features
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Start** - SSR framework with TanStack Router
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Drizzle** - TypeScript-first ORM
-- **SQLite/Turso** - Database engine
-- **Authentication** - Better-Auth
-- **Biome** - Linting and formatting
-- **Turborepo** - Optimized monorepo build system
+- **Autonomous On-Call Agent** - Monitoring, diagnosing, and reporting incidents.
+- **Telegram Integration** - Interactive reporting and approval flow.
+- **GitHub Integration** - Handles Issues, PRs, and Workflow failures.
+- **Fullstack Dashboard** - Real-time monitoring and log visualization.
 
 ## Getting Started
 
@@ -27,80 +21,36 @@ pnpm install
 
 This project uses SQLite with Drizzle ORM.
 
-1. Start the local SQLite database (optional):
-
-```bash
-pnpm run db:local
-```
-
-2. Update your `.env` file in the `apps/web` directory with the appropriate connection details if needed.
-
-3. Apply the schema to your database:
+1. Apply the schema to your database:
 
 ```bash
 pnpm run db:push
 ```
 
-Then, run the development server:
+2. Start the development server:
 
 ```bash
 pnpm run dev
 ```
-
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
-
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@hermes-on-call/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Git Hooks and Formatting
-
-- Format and lint fix: `pnpm run check`
 
 ## Project Structure
 
 ```
 hermes-on-call/
 ├── apps/
-│   └── web/         # Fullstack application (React + TanStack Start)
+│   └── web/            # Dashboard application
 ├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── hermes-agent/   # Python logic, agents, and monitoring loop
+│   ├── ui/             # Shared shadcn/ui components
+│   ├── api/            # API layer
+│   ├── auth/           # Better-Auth config
+│   └── db/             # Drizzle schema
 ```
 
-## Available Scripts
+## Running the Agent
 
-- `pnpm run dev`: Start all applications in development mode
-- `pnpm run build`: Build all applications
-- `pnpm run dev:web`: Start only the web application
-- `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm run db:push`: Push schema changes to database
-- `pnpm run db:generate`: Generate database client/types
-- `pnpm run db:migrate`: Run database migrations
-- `pnpm run db:studio`: Open database studio UI
-- `pnpm run db:local`: Start the local SQLite database
-- `pnpm run check`: Run Biome formatting and linting
+To start the webhook receiver (listens for GitHub events):
+```bash
+cd packages/hermes-agent
+pnpm server:standalone
+```

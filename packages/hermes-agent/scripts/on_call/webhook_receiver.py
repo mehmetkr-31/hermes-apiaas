@@ -39,7 +39,7 @@ if str(script_dir) not in sys.path:
     sys.path.append(str(script_dir))
 
 app = FastAPI(title="Hermes Webhook Receiver", lifespan=lifespan)
-HERMES_CMD    = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
+HERMES_CMD    = os.getenv("HERMES_CMD", "hermes")
 
 WORKING_DIR   = pathlib.Path(__file__).parent.parent.parent.resolve()
 DB_FILE       = WORKING_DIR.parent.parent / "local.db"

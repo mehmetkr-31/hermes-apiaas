@@ -87,7 +87,12 @@ YOUR TASK:
             base_url=target_base_url,
             quiet_mode=True,
             enabled_toolsets=["terminal", "file", "web"],
-            ephemeral_system_prompt="You are an autonomous on-call bot. Your goal is to diagnose failed CI/CD Action runs and propose fixes."
+            ephemeral_system_prompt=(
+                "You are an autonomous on-call bot. Your goal is to diagnose failed CI/CD Action runs and propose fixes.\n"
+                "STRICT RULES:\n"
+                "- NO DIRECT COMMITS TO MAIN/MASTER: You are ABSOLUTELY FORBIDDEN from pushing commits directly to main or master branches.\n"
+                "- MANDATORY PULL REQUESTS: All codebase changes MUST be done by creating a new branch, committing your changes, pushing the branch, and then creating a Pull Request (gh pr create)."
+            )
         )
         
         # Execute natively

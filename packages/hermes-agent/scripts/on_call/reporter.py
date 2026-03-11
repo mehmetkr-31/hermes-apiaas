@@ -262,7 +262,28 @@ async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """General chat interaction with Hermes."""
-    if not update.message or not update.message.text:
+    if not update.message:
+        return
+
+    message_text = update.message.text or update.message.caption or ""
+    
+    if update.message.photo:
+        photo = update.message.photo[-1]
+        photo_file = await context.bot.get_file(photo.file_id)
+        
+        images_dir = os.path.expanduser("~/.hermes/images")
+        os.makedirs(images_dir, exist_ok=True)
+        filename = f"telegram_photo_{photo.file_id}.jpg"
+        filepath = os.path.join(images_dir, filename)
+        
+        await photo_file.download_to_drive(filepath)
+        
+        if not message_text.strip():
+            message_text = "What is in this image?"
+            
+        message_text += f"\n\n[Attached Photo: {filepath}]"
+
+    if not message_text.strip():
         return
 
     # Security: Check allowlist
@@ -275,11 +296,10 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔️ You are not authorized to use this commander.")
         return
 
-    message_text = update.message.text
     if message_text.startswith("/"):
         return # Skip commands already handled
 
-    logging.info(f"💬 Telegram Chat: {message_text[:50]}...")
+    logging.info(f"💬 Telegram Chat: {message_text}")
     
     # Send "typing..." action
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=telegram.constants.ChatAction.TYPING)
@@ -352,7 +372,7 @@ You are decisive, proactive, and strictly adhere to GitHub-native investigation 
             api_key=active_key,
             base_url=target_base_url,
             quiet_mode=True,
-            enabled_toolsets=["terminal", "file", "web"],
+            enabled_toolsets=["terminal", "file", "web", "vision"],
             skip_memory=False, # Enable memory for proactive flows
             session_id=f"tg-{chat_id_str}",
             ephemeral_system_prompt=system_prompt,
@@ -437,7 +457,7 @@ def start_bot():
     application.add_handler(CommandHandler("logs", logs_command))
     application.add_handler(CallbackQueryHandler(callback_handler))
     # Handle everything else as chat
-    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), chat_handler))
+    application.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), chat_handler))
 
     logging.info("🤖 Interactive Telegram Bot initializing...")
     try:

@@ -11,10 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodosRouteImport } from './routes/todos'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
-import { Route as DashboardChatRouteImport } from './routes/dashboard.chat'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardSettingsRouteRouteImport } from './routes/dashboard/settings.route'
+import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard/settings.index'
+import { Route as DashboardSettingsLogsRouteImport } from './routes/dashboard/settings.logs'
+import { Route as DashboardSettingsActivityRouteImport } from './routes/dashboard/settings.activity'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -28,7 +31,7 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
+const DashboardRouteRoute = DashboardRouteRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
@@ -38,16 +41,32 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSettingsRouteRoute = DashboardSettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => DashboardRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardChatRoute = DashboardChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => DashboardRoute,
+const DashboardSettingsIndexRoute = DashboardSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardSettingsRouteRoute,
 } as any)
+const DashboardSettingsLogsRoute = DashboardSettingsLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => DashboardSettingsRouteRoute,
+} as any)
+const DashboardSettingsActivityRoute =
+  DashboardSettingsActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => DashboardSettingsRouteRoute,
+  } as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   id: '/api/rpc/$',
   path: '/api/rpc/$',
@@ -61,34 +80,41 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
-  '/dashboard/chat': typeof DashboardChatRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteRouteWithChildren
+  '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/dashboard/settings/activity': typeof DashboardSettingsActivityRoute
+  '/dashboard/settings/logs': typeof DashboardSettingsLogsRoute
+  '/dashboard/settings/': typeof DashboardSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
-  '/dashboard/chat': typeof DashboardChatRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/dashboard/settings/activity': typeof DashboardSettingsActivityRoute
+  '/dashboard/settings/logs': typeof DashboardSettingsLogsRoute
+  '/dashboard/settings': typeof DashboardSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
-  '/dashboard/chat': typeof DashboardChatRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteRouteWithChildren
+  '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/dashboard/settings/activity': typeof DashboardSettingsActivityRoute
+  '/dashboard/settings/logs': typeof DashboardSettingsLogsRoute
+  '/dashboard/settings/': typeof DashboardSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,35 +123,42 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/todos'
-    | '/dashboard/chat'
     | '/dashboard/settings'
+    | '/dashboard/'
     | '/api/auth/$'
     | '/api/rpc/$'
+    | '/dashboard/settings/activity'
+    | '/dashboard/settings/logs'
+    | '/dashboard/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/dashboard'
     | '/login'
     | '/todos'
-    | '/dashboard/chat'
-    | '/dashboard/settings'
+    | '/dashboard'
     | '/api/auth/$'
     | '/api/rpc/$'
+    | '/dashboard/settings/activity'
+    | '/dashboard/settings/logs'
+    | '/dashboard/settings'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/login'
     | '/todos'
-    | '/dashboard/chat'
     | '/dashboard/settings'
+    | '/dashboard/'
     | '/api/auth/$'
     | '/api/rpc/$'
+    | '/dashboard/settings/activity'
+    | '/dashboard/settings/logs'
+    | '/dashboard/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRouteWithChildren
+  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   TodosRoute: typeof TodosRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -152,7 +185,7 @@ declare module '@tanstack/react-router' {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+      preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -162,19 +195,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/settings': {
       id: '/dashboard/settings'
       path: '/settings'
       fullPath: '/dashboard/settings'
-      preLoaderRoute: typeof DashboardSettingsRouteImport
-      parentRoute: typeof DashboardRoute
+      preLoaderRoute: typeof DashboardSettingsRouteRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/chat': {
-      id: '/dashboard/chat'
-      path: '/chat'
-      fullPath: '/dashboard/chat'
-      preLoaderRoute: typeof DashboardChatRouteImport
-      parentRoute: typeof DashboardRoute
+    '/dashboard/settings/': {
+      id: '/dashboard/settings/'
+      path: '/'
+      fullPath: '/dashboard/settings/'
+      preLoaderRoute: typeof DashboardSettingsIndexRouteImport
+      parentRoute: typeof DashboardSettingsRouteRoute
+    }
+    '/dashboard/settings/logs': {
+      id: '/dashboard/settings/logs'
+      path: '/logs'
+      fullPath: '/dashboard/settings/logs'
+      preLoaderRoute: typeof DashboardSettingsLogsRouteImport
+      parentRoute: typeof DashboardSettingsRouteRoute
+    }
+    '/dashboard/settings/activity': {
+      id: '/dashboard/settings/activity'
+      path: '/activity'
+      fullPath: '/dashboard/settings/activity'
+      preLoaderRoute: typeof DashboardSettingsActivityRouteImport
+      parentRoute: typeof DashboardSettingsRouteRoute
     }
     '/api/rpc/$': {
       id: '/api/rpc/$'
@@ -193,23 +247,41 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface DashboardRouteChildren {
-  DashboardChatRoute: typeof DashboardChatRoute
-  DashboardSettingsRoute: typeof DashboardSettingsRoute
+interface DashboardSettingsRouteRouteChildren {
+  DashboardSettingsActivityRoute: typeof DashboardSettingsActivityRoute
+  DashboardSettingsLogsRoute: typeof DashboardSettingsLogsRoute
+  DashboardSettingsIndexRoute: typeof DashboardSettingsIndexRoute
 }
 
-const DashboardRouteChildren: DashboardRouteChildren = {
-  DashboardChatRoute: DashboardChatRoute,
-  DashboardSettingsRoute: DashboardSettingsRoute,
+const DashboardSettingsRouteRouteChildren: DashboardSettingsRouteRouteChildren =
+  {
+    DashboardSettingsActivityRoute: DashboardSettingsActivityRoute,
+    DashboardSettingsLogsRoute: DashboardSettingsLogsRoute,
+    DashboardSettingsIndexRoute: DashboardSettingsIndexRoute,
+  }
+
+const DashboardSettingsRouteRouteWithChildren =
+  DashboardSettingsRouteRoute._addFileChildren(
+    DashboardSettingsRouteRouteChildren,
+  )
+
+interface DashboardRouteRouteChildren {
+  DashboardSettingsRouteRoute: typeof DashboardSettingsRouteRouteWithChildren
+  DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
-const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
-  DashboardRouteChildren,
+const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardSettingsRouteRoute: DashboardSettingsRouteRouteWithChildren,
+  DashboardIndexRoute: DashboardIndexRoute,
+}
+
+const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
+  DashboardRouteRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRouteWithChildren,
+  DashboardRouteRoute: DashboardRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   TodosRoute: TodosRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

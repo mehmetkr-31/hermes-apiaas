@@ -1,0 +1,24 @@
+{
+	"$schema": "https://ui.shadcn.com/schema.json",
+	"style": "base-lyra",
+	"rsc": false,
+	"tsx": true,
+	"tailwind": {
+		"config": "",
+		"css": "src/styles/globals.css",
+		"baseColor": "neutral",
+		"cssVariables": true,
+		"prefix": ""
+	},
+	"iconLibrary": "lucide",
+	"aliases": {
+		"components": "@hermes-on-call/ui/components",
+		"utils": "@hermes-on-call/ui/lib/utils",
+		"hooks": "@hermes-on-call/ui/hooks",
+		"lib": "@hermes-on-call/ui/lib",
+		"ui": "@hermes-on-call/ui/components"
+	},
+	"menuColor": "default",
+	"menuAccent": "subtle",
+	"registries": {}
+}

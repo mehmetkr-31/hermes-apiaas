@@ -1,0 +1,29 @@
+{
+	"name": "@hermes-on-call/api",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {},
+	"dependencies": {
+		"@hermes-on-call/auth": "workspace:*",
+		"@hermes-on-call/db": "workspace:*",
+		"@hermes-on-call/env": "workspace:*",
+		"@orpc/client": "catalog:",
+		"@orpc/openapi": "catalog:",
+		"@orpc/server": "catalog:",
+		"@orpc/zod": "catalog:",
+		"dotenv": "catalog:",
+		"drizzle-orm": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@hermes-on-call/config": "workspace:*",
+		"typescript": "^5"
+	}
+}

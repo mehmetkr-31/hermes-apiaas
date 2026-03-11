@@ -1,0 +1,9 @@
+{
+	"name": "@hermes/agent",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": ".venv/bin/uvicorn scripts.on_call.webhook_receiver:app --reload --port 8090",
+		"install": "python3 -m venv .venv && .venv/bin/pip install -r agent/requirements.txt"
+	}
+}

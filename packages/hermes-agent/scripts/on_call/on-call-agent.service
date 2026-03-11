@@ -1,0 +1,17 @@
+[Unit]
+Description=Hermes On-Call Agent Sentinel
+After=network.target
+
+[Service]
+Type=simple
+User=alikar
+WorkingDirectory=/Users/alikar/dev/hermes-apiaas
+ExecStart=/usr/bin/python3 /Users/alikar/dev/hermes-apiaas/scripts/on_call/monitor_loop.py
+Restart=always
+RestartSec=10
+Environment=API_URL=http://localhost:8000/health
+Environment=CPU_THRESHOLD=95
+Environment=MEM_THRESHOLD=95
+
+[Install]
+WantedBy=multi-user.target

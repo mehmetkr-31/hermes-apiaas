@@ -16,7 +16,7 @@
 		"db:generate": "turbo -F @agiaas/db db:generate",
 		"db:migrate": "turbo -F @agiaas/db db:migrate",
 		"db:local": "turbo -F @agiaas/db db:local",
-		"python:install": "python3.12 -m venv .venv && .venv/bin/pip install -r packages/hermes-agent/hermes_data/requirements.txt",
+		"python:install": "python3.12 -m venv .venv && .venv/bin/pip install -r packages/agent/hermes_data/requirements.txt",
 		"check": "biome check --write apps/ packages/ && turbo check-types"
 	},
 	"dependencies": {

@@ -224,6 +224,12 @@ importers:
         specifier: ^5.0.3
         version: 5.1.0
 
+  packages/agent:
+    devDependencies:
+      pyright:
+        specifier: ^1.1
+        version: 1.1.408
+
   packages/api:
     dependencies:
       '@agiaas/auth':
@@ -343,12 +349,6 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
-
-  packages/hermes-agent:
-    devDependencies:
-      pyright:
-        specifier: ^1.1
-        version: 1.1.408
 
   packages/ui:
     dependencies:

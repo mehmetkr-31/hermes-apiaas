@@ -1,16 +1,11 @@
 {
-  "include": [
-    "packages/hermes-agent/scripts"
-  ],
-  "exclude": [
-    "**/node_modules",
-    "**/__pycache__"
-  ],
-  "extraPaths": [
-    "packages/hermes-agent/scripts",
-    "packages/hermes-agent/scripts/on_call",
-    ".venv/lib/python3.12/site-packages"
-  ],
-  "typeCheckingMode": "basic",
-  "reportMissingImports": true
+	"include": ["packages/agent/scripts"],
+	"exclude": ["**/node_modules", "**/__pycache__"],
+	"extraPaths": [
+		"packages/agent/scripts",
+		"packages/agent/scripts/on_call",
+		".venv/lib/python3.12/site-packages"
+	],
+	"typeCheckingMode": "basic",
+	"reportMissingImports": true
 }

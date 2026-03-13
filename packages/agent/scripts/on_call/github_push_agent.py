@@ -25,11 +25,15 @@ from prompts import PUSH_EVENT_TEMPLATE, CORE_SAFETY_RULES
 
 load_dotenv()
 
-HERMES_CMD = os.getenv("HERMES_CMD", "/Users/alikar/.local/bin/hermes")
+# Dynamic HERMES_CMD - use env or default to 'hermes'
+HERMES_CMD = os.getenv("HERMES_CMD", "hermes")
+
+# AGENT_ROOT is automatically detected from file location
 AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
-WORKING_DIR = AGENT_ROOT.parent.parent.resolve()  # Monorepo Root
 LOG_DIR = AGENT_ROOT / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+logging.info(f"📁 Push Agent - Agent Root: {AGENT_ROOT}")
 
 
 def log_step(msg: str, project_slug: str):

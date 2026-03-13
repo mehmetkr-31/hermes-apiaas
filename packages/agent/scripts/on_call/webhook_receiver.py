@@ -39,6 +39,7 @@ from reporter import (
     request_approval,
     DB_FILE,
     WORKING_DIR,
+    PROJECT_ROOT,
     LOG_FILE_PATH as MAIN_LOG_FILE,
 )
 from prompts import get_commander_system_prompt, CORE_SAFETY_RULES
@@ -59,8 +60,11 @@ if str(script_dir) not in sys.path:
 HERMES_CMD = os.getenv("HERMES_CMD", "hermes")
 
 # Common paths and config logic now imported from reporter.py
+# Ensure directories exist
 LOG_DIR = WORKING_DIR / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+logging.info(f"📁 Webhook Receiver - Project Root: {PROJECT_ROOT}")
 
 
 @asynccontextmanager

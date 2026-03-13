@@ -1,0 +1,42 @@
+services:
+  hermes-agent:
+    build:
+      context: .
+      dockerfile: packages/agent/Dockerfile
+    container_name: hermes-agent
+    env_file:
+      - .env
+    environment:
+      - HERMES_PROJECT_ROOT=/app
+      - HERMES_DATA_DIR=/app/.tmp
+      - HERMES_DB_FILE=local.db
+    volumes:
+      # Persist database
+      - ./local.db:/app/local.db
+      # Persist cloned repositories
+      - ./.tmp:/app/.tmp
+      # Persist logs
+      - ./logs:/app/logs
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: PostgreSQL if needed (not required for SQLite)
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: hermes
+  #     POSTGRES_PASSWORD: hermes
+  #     POSTGRES_DB: hermes
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+# volumes:
+#   postgres_data:

@@ -47,7 +47,7 @@ try:
     import sys
     import os
 
-    # Add the packages/hermes-agent directory to sys.path so we can import tools.*
+    # Add the packages/agent directory to sys.path so we can import tools.*
     agent_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     if agent_root not in sys.path:
         sys.path.insert(0, agent_root)
@@ -69,12 +69,39 @@ DEFAULT_NOUS_MODEL = (
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 NOUS_API_BASE_URL = "https://inference-api.nousresearch.com/v1"
 
-# Pathing setup
-PROJECT_ROOT = pathlib.Path("/Users/alikar/dev/hermes-apiaas")
-WORKING_DIR = PROJECT_ROOT / "packages" / "hermes-agent"
-DB_FILE = PROJECT_ROOT / "local.db"
+
+# Dynamic Path Configuration (Docker & Local Compatible)
+# Priority: 1. Environment Variable, 2. Auto-detect from file location, 3. Default
+def _get_project_root():
+    """Get project root dynamically for Docker/Local compatibility."""
+    env_root = os.getenv("HERMES_PROJECT_ROOT")
+    if env_root:
+        return pathlib.Path(env_root)
+    # Fallback: detect from current file location
+    return pathlib.Path(__file__).resolve().parent.parent.parent
+
+
+PROJECT_ROOT = _get_project_root()
+
+# Data directory for cloned repositories
+DEFAULT_DATA_DIR = ".tmp"
+DATA_DIR = PROJECT_ROOT / os.getenv("HERMES_DATA_DIR", DEFAULT_DATA_DIR)
+
+# Database file
+DEFAULT_DB_FILE = "local.db"
+DB_FILE = PROJECT_ROOT / os.getenv("HERMES_DB_FILE", DEFAULT_DB_FILE)
+
+# Logging
+WORKING_DIR = PROJECT_ROOT / "packages" / "agent"
 LOG_FILE_PATH = WORKING_DIR / "agent" / "on_call_logs" / "monitoring.jsonl"
-DATA_DIR = PROJECT_ROOT / ".tmp"
+
+# Ensure directories exist
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+logging.info(f"📁 Project Root: {PROJECT_ROOT}")
+logging.info(f"📁 Data Directory: {DATA_DIR}")
+logging.info(f"📁 Database: {DB_FILE}")
 
 
 def get_standardized_model(model_name: str, api_key: str = "") -> str:

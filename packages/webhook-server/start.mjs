@@ -62,7 +62,7 @@ function decrypt(hash) {
 }
 const RECEIVER_SCRIPT = resolve(
 	__dirname,
-	"../hermes-agent/scripts/on_call/webhook_receiver.py",
+	"../agent/scripts/on_call/webhook_receiver.py",
 );
 const TUNNEL_URL_FILE = "/tmp/hermes_tunnel_url.txt";
 const DB_FILE = resolve(__dirname, "../../local.db");

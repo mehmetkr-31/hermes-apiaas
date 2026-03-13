@@ -147,7 +147,7 @@ Structure the review block as:
     log_step(f"Verdict: {verdict}. Waiting for user approval...")
 
     # Request Approval
-    approval_text = f"Hermes review for PR #{pr_number} is ready.\n\n*Verdict:* `{verdict.upper()}`\n\n*Review Preview:*\n{analysis[:1000]}..."
+    approval_text = f"Hermes review for PR #{pr_number} is ready.\n\n*Verdict:* `{verdict.upper()}`\n\n*Review Preview:*\n{analysis[:3800]}..."
     approved = request_approval(approval_text, f"pr_{pr_number}_{int(time.time())}", repo_full_name=f"{owner}/{repo}")
 
     if approved:

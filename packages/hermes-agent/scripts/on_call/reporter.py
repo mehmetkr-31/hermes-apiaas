@@ -178,12 +178,18 @@ def get_telegram_context(repo_full_name: str) -> tuple[str, str]:
 
 def ensure_repo_cloned(owner: Optional[str], repo: Optional[str]) -> pathlib.Path:
     """Clone or pull the target repository into .tmp/owner/repo"""
+    import shutil
     if not owner or not repo:
         raise ValueError("Owner and repo must be provided")
     repo_dir = DATA_DIR / str(owner) / str(repo)
+    repo_git_dir = repo_dir / ".git"
+    
     repo_dir.parent.mkdir(parents=True, exist_ok=True)
     
-    if not repo_dir.exists():
+    if not repo_git_dir.exists():
+        if repo_dir.exists():
+            logging.warning(f"🧹 Removing corrupted or empty repository directory: {repo_dir}")
+            shutil.rmtree(repo_dir)
         logging.info(f"🚚 Cloning {owner}/{repo} into {repo_dir}")
         subprocess.run(["git", "clone", f"https://github.com/{owner}/{repo}.git", str(repo_dir)], check=True)
     else:

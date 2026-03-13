@@ -94,7 +94,7 @@ YOUR TASKS (in order):
             f.write(response)
         
         local_log_step("Analysis complete.")
-        send_telegram_message(f"✅ Hermes analysis for Push to {branch} complete.\n\n{response[:1000]}", repo_full_name=f"{owner}/{repo}")
+        send_telegram_message(f"✅ Hermes analysis for Push to {branch} complete.\n\n{response[:3800]}", repo_full_name=f"{owner}/{repo}")
 
     except Exception as e:
         local_log_step(f"Hermes FAILED: {e}")

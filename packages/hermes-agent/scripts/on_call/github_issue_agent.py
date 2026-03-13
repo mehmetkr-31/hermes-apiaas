@@ -144,7 +144,7 @@ Structure the final analysis block as:
     log_step("Waiting for user approval...")
 
     # Request Approval
-    approval_text = f"Hermes has finished analyzing Issue #{issue_number}.\n\n*Proposed Comment:*\n{analysis[:1000]}..."
+    approval_text = f"Hermes has finished analyzing Issue #{issue_number}.\n\n*Proposed Comment:*\n{analysis[:3800]}..."
     approved = request_approval(approval_text, f"issue_{issue_number}_{int(time.time())}", repo_full_name=f"{owner}/{repo}")
 
     if approved:

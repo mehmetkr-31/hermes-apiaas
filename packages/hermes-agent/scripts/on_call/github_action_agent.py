@@ -134,7 +134,7 @@ YOUR TASK:
     log_step("Waiting for user approval...")
 
     # Request Approval
-    approval_text = f"Hermes diagnosed a failure in *- {workflow_name} -*\n\n*Diagnosis:*\n{diagnosis[:1000]}...\n\n*Should I rerun the failed jobs?*"
+    approval_text = f"Hermes diagnosed a failure in *- {workflow_name} -*\n\n*Diagnosis:*\n{diagnosis[:3800]}...\n\n*Should I rerun the failed jobs?*"
     approved = request_approval(approval_text, f"action_{run_id}_{int(time.time())}", repo_full_name=f"{owner}/{repo}")
 
     if approved:

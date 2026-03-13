@@ -16,7 +16,7 @@
 		"db:generate": "turbo -F @agiaas/db db:generate",
 		"db:migrate": "turbo -F @agiaas/db db:migrate",
 		"db:local": "turbo -F @agiaas/db db:local",
-		"check": "biome check --write apps/ packages/api/src/ packages/ui/src/"
+		"check": "biome check --write apps/ packages/api/src/ packages/ui/src/ && turbo check-types"
 	},
 	"dependencies": {
 		"@agiaas/env": "workspace:*",

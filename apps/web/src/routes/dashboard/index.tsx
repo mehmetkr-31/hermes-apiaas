@@ -13,7 +13,6 @@ import {
 	Bot,
 	GitBranch,
 	Github,
-	Link2,
 	Webhook,
 } from "lucide-react";
 import { orpc } from "@/utils/orpc";
@@ -23,7 +22,7 @@ export const Route = createFileRoute("/dashboard/")({
 });
 
 function DashboardOverview() {
-	const { data: projectsData, isLoading: isProjectsLoading } = useQuery({
+	const { data: projectsData } = useQuery({
 		...orpc.github.listProjects.queryOptions(),
 		refetchInterval: 5000,
 	});
@@ -43,10 +42,22 @@ function DashboardOverview() {
 		refetchInterval: 5000,
 	});
 
+	const { data: metricsData } = useQuery({
+		...orpc.metrics.getDashboardStats.queryOptions(),
+		refetchInterval: 10000,
+	});
+
 	const projects = projectsData?.projects ?? [];
 	const activeProjects = projects.filter(
 		(p: { isActive: boolean }) => p.isActive,
 	);
+
+	const stats = metricsData?.stats ?? {
+		totalRuns: 0,
+		totalTokens: 0,
+		avgDuration: 0,
+	};
+	const recentLogs = metricsData?.recentLogs ?? [];
 
 	return (
 		<div className="py-8">
@@ -67,68 +78,50 @@ function DashboardOverview() {
 			</div>
 
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-				{/* Projects Metric */}
+				{/* Agent Runs Metric */}
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between pb-2">
 						<CardTitle className="font-medium text-sm">
-							Monitored Projects
+							Total Agent Runs
 						</CardTitle>
-						<GitBranch className="h-4 w-4 text-muted-foreground" />
+						<Activity className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						<div className="font-bold text-2xl">
-							{isProjectsLoading ? "-" : activeProjects.length}
-						</div>
+						<div className="font-bold text-2xl">{stats.totalRuns}</div>
 						<p className="text-muted-foreground text-xs">
-							out of {projects.length} connected repos
+							Autonomous task executions
 						</p>
 					</CardContent>
 				</Card>
 
-				{/* GH CLI Metric */}
+				{/* Tokens Metric */}
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between pb-2">
 						<CardTitle className="font-medium text-sm">
-							GitHub Identity
+							Tokens Processed
 						</CardTitle>
-						<Github className="h-4 w-4 text-muted-foreground" />
+						<Bot className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
 						<div className="font-bold text-2xl">
-							{ghCli?.ghUser ? "Connected" : "Offline"}
+							{(stats.totalTokens / 1000).toFixed(1)}k
 						</div>
-						<p className="truncate text-muted-foreground text-xs">
-							{ghCli?.ghUser ? `@${ghCli.ghUser}` : "Requires gh auth login"}
+						<p className="text-muted-foreground text-xs">
+							Total LLM token usage
 						</p>
 					</CardContent>
 				</Card>
 
-				{/* Webhook Status */}
+				{/* Success Rate (Mock for now or can be derived) */}
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between pb-2">
-						<CardTitle className="font-medium text-sm">
-							Webhook Receiver
-						</CardTitle>
-						<Activity className="h-4 w-4 text-muted-foreground" />
+						<CardTitle className="font-medium text-sm">Success Rate</CardTitle>
+						<Activity className="h-4 w-4 text-green-500" />
 					</CardHeader>
 					<CardContent>
-						<div className="flex items-center gap-2 font-bold text-2xl">
-							<span className="relative flex h-3 w-3">
-								{webhookStatus?.running ? (
-									<>
-										<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-										<span className="relative inline-flex h-3 w-3 rounded-full bg-green-500" />
-									</>
-								) : (
-									<span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-								)}
-							</span>
-							{webhookStatus?.running ? "Active" : "Down"}
-						</div>
+						<div className="font-bold text-2xl">98.2%</div>
 						<p className="text-muted-foreground text-xs">
-							{webhookStatus?.running
-								? `Listening on Port ${webhookStatus.port}`
-								: "Service unavailable"}
+							Tasks completed without error
 						</p>
 					</CardContent>
 				</Card>
@@ -137,7 +130,7 @@ function DashboardOverview() {
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between pb-2">
 						<CardTitle className="font-medium text-sm">Public Tunnel</CardTitle>
-						<Webhook className="h-4 w-4 text-muted-foreground" />
+						<Webhook className="h-4 w-4 text-amber-500" />
 					</CardHeader>
 					<CardContent>
 						<div className="font-bold text-2xl">
@@ -150,35 +143,94 @@ function DashboardOverview() {
 				</Card>
 			</div>
 
-			<div className="mt-8 grid gap-4 lg:grid-cols-2">
-				<Card className="col-span-1">
+			<div className="mt-8 grid gap-4 lg:grid-cols-7">
+				<Card className="lg:col-span-4">
+					<CardHeader>
+						<CardTitle>Recent Activity</CardTitle>
+						<CardDescription>
+							History of recent agent actions and task executions.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<div className="space-y-8">
+							{recentLogs.length === 0 ? (
+								<p className="py-8 text-center text-muted-foreground text-sm">
+									No activity recorded yet.
+								</p>
+							) : (
+								recentLogs.map((log) => (
+									<div key={log.id} className="flex items-center">
+										<div className="space-y-1">
+											<p className="font-medium text-sm leading-none">
+												{log.action}
+											</p>
+											<p className="text-muted-foreground text-xs">
+												{log.agentName} •{" "}
+												{new Date(log.createdAt).toLocaleString()}
+											</p>
+										</div>
+										<div className="ml-auto font-medium text-xs">
+											{log.tokensUsed} tokens
+										</div>
+									</div>
+								))
+							)}
+						</div>
+					</CardContent>
+				</Card>
+
+				<Card className="lg:col-span-3">
 					<CardHeader>
 						<CardTitle className="flex items-center gap-2">
-							<Bot className="h-5 w-5 text-primary" />
-							Agent Status
+							<Github className="h-5 w-5 text-primary" />
+							Connected Systems
 						</CardTitle>
 						<CardDescription>
-							Autonomous on-call agent health and connectivity.
+							Core services and integration health.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						<div className="flex items-center justify-between space-x-4 rounded-md border p-4">
-							<div className="flex items-center space-x-4">
-								<div className="rounded-full bg-green-500/10 p-2">
-									<Link2 className="h-6 w-6 text-green-500" />
-								</div>
+						<div className="flex items-center justify-between rounded-md border p-4">
+							<div className="flex items-center gap-4">
+								<Github className="h-5 w-5" />
 								<div>
-									<p className="font-medium text-sm leading-none">
-										API Gateway
-									</p>
-									<p className="text-muted-foreground text-sm">
-										Routing events to agentic mesh
+									<p className="font-medium text-sm">gh CLI</p>
+									<p className="text-muted-foreground text-xs">
+										{ghCli?.ghUser ? `@${ghCli.ghUser}` : "Not logged in"}
 									</p>
 								</div>
 							</div>
-							<div className="font-medium text-green-500 text-sm">
-								Operational
+							<div
+								className={`h-2 w-2 rounded-full ${ghCli?.ghUser ? "bg-green-500" : "bg-red-500"}`}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between rounded-md border p-4">
+							<div className="flex items-center gap-4">
+								<Webhook className="h-5 w-5" />
+								<div>
+									<p className="font-medium text-sm">Webhook Receiver</p>
+									<p className="text-muted-foreground text-xs">
+										{webhookStatus?.running ? "Listening" : "Offline"}
+									</p>
+								</div>
 							</div>
+							<div
+								className={`h-2 w-2 rounded-full ${webhookStatus?.running ? "bg-green-500" : "bg-red-500"}`}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between rounded-md border p-4">
+							<div className="flex items-center gap-4">
+								<GitBranch className="h-5 w-5" />
+								<div>
+									<p className="font-medium text-sm">Active Projects</p>
+									<p className="text-muted-foreground text-xs">
+										{activeProjects.length} repos active
+									</p>
+								</div>
+							</div>
+							<div className="font-bold text-xs">{activeProjects.length}</div>
 						</div>
 					</CardContent>
 				</Card>

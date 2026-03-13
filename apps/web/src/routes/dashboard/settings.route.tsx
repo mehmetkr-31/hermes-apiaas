@@ -25,6 +25,12 @@ function SettingsLayout() {
 			icon: <Github className="h-4 w-4" />,
 			to: "/dashboard/settings/activity",
 		},
+		{
+			id: "secrets",
+			label: "Secrets",
+			icon: <Settings2 className="h-4 w-4" />, // Or a different icon like Lock
+			to: "/dashboard/settings/secrets",
+		},
 	];
 
 	return (

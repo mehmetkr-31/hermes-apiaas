@@ -7,5 +7,6 @@ export const hermesProject = sqliteTable("hermes_project", {
 	webhookSecret: text("webhook_secret").notNull(),
 	telegramChatId: text("telegram_chat_id").notNull(),
 	isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+	llmModel: text("llm_model").default("gpt-4o-mini").notNull(),
 	createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`).notNull(),
 });

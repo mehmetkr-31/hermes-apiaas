@@ -149,6 +149,12 @@ function GeneralSettings() {
 		}),
 	);
 
+	const updateModelMutation = useMutation(
+		orpc.github.updateModel.mutationOptions({
+			onSuccess: () => queryClient.invalidateQueries(),
+		}),
+	);
+
 	const repos = reposData?.repos ?? [];
 	const projects = projectsData?.projects ?? [];
 
@@ -293,46 +299,40 @@ function GeneralSettings() {
 						</div>
 					) : (
 						<div className="grid gap-4">
-							{projects.map(
-								(p: {
-									id: string;
-									repoFullName: string;
-									isActive: boolean;
-									telegramChatId: string;
-									webhookSecret: string;
-								}) => (
-									<Card key={p.id} className={!p.isActive ? "opacity-60" : ""}>
-										<CardHeader className="flex flex-row items-center justify-between pb-2">
-											<CardTitle className="flex items-center gap-2 text-base">
-												<GitBranch className="h-4 w-4 text-primary" />
-												{p.repoFullName}
-											</CardTitle>
-											<div className="flex items-center gap-2">
-												<button
-													type="button"
-													className={`rounded-full px-2 py-1 font-medium text-[10px] ${p.isActive ? "bg-green-500/10 text-green-500" : "bg-muted text-muted-foreground"}`}
-													onClick={() =>
-														toggleProjectMutation.mutate({
-															id: p.id,
-															isActive: !p.isActive,
-														})
-													}
-												>
-													{p.isActive ? "Active" : "Paused"}
-												</button>
-												<button
-													type="button"
-													className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-													onClick={() =>
-														deleteProjectMutation.mutate({ id: p.id })
-													}
-													title="Delete Project"
-												>
-													<Trash2 className="h-4 w-4" />
-												</button>
-											</div>
-										</CardHeader>
-										<CardContent className="flex gap-4 text-muted-foreground text-xs">
+							{projects.map((p) => (
+								<Card key={p.id} className={!p.isActive ? "opacity-60" : ""}>
+									<CardHeader className="flex flex-row items-center justify-between pb-2">
+										<CardTitle className="flex items-center gap-2 text-base">
+											<GitBranch className="h-4 w-4 text-primary" />
+											{p.repoFullName}
+										</CardTitle>
+										<div className="flex items-center gap-2">
+											<button
+												type="button"
+												className={`rounded-full px-2 py-1 font-medium text-[10px] ${p.isActive ? "bg-green-500/10 text-green-500" : "bg-muted text-muted-foreground"}`}
+												onClick={() =>
+													toggleProjectMutation.mutate({
+														id: p.id,
+														isActive: !p.isActive,
+													})
+												}
+											>
+												{p.isActive ? "Active" : "Paused"}
+											</button>
+											<button
+												type="button"
+												className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+												onClick={() =>
+													deleteProjectMutation.mutate({ id: p.id })
+												}
+												title="Delete Project"
+											>
+												<Trash2 className="h-4 w-4" />
+											</button>
+										</div>
+									</CardHeader>
+									<CardContent className="space-y-4 text-muted-foreground text-xs">
+										<div className="flex gap-4">
 											<div>
 												<span className="font-semibold text-foreground">
 													Chat ID:
@@ -345,10 +345,40 @@ function GeneralSettings() {
 												</span>{" "}
 												{p.webhookSecret ? "••••••••" : "Not Set"}
 											</div>
-										</CardContent>
-									</Card>
-								),
-							)}
+										</div>
+
+										<div className="flex items-center gap-3 border-t pt-3">
+											<span className="font-semibold text-foreground">
+												LLM Model:
+											</span>
+											<select
+												value={p.llmModel}
+												onChange={(e) =>
+													updateModelMutation.mutate({
+														id: p.id,
+														llmModel: e.target.value,
+													})
+												}
+												className="rounded border bg-background px-2 py-1 font-medium text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+											>
+												<option value="gpt-4o-mini">GPT-4o Mini</option>
+												<option value="gpt-4o">GPT-4o</option>
+												<option value="claude-3-5-sonnet-latest">
+													Claude 3.5 Sonnet
+												</option>
+												<option value="claude-3-5-haiku-latest">
+													Claude 3.5 Haiku
+												</option>
+											</select>
+											{updateModelMutation.isPending && (
+												<span className="animate-pulse text-[10px]">
+													Saving...
+												</span>
+											)}
+										</div>
+									</CardContent>
+								</Card>
+							))}
 						</div>
 					)}
 				</div>

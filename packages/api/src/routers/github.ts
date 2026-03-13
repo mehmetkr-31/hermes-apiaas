@@ -57,6 +57,16 @@ export const githubRouter = {
 			return { success: true };
 		}),
 
+	updateModel: publicProcedure
+		.input(z.object({ id: z.string(), llmModel: z.string() }))
+		.handler(async ({ input }) => {
+			await db
+				.update(hermesProject)
+				.set({ llmModel: input.llmModel })
+				.where(eq(hermesProject.id, input.id));
+			return { success: true };
+		}),
+
 	deleteProject: publicProcedure
 		.input(z.object({ id: z.string() }))
 		.handler(async ({ input }) => {

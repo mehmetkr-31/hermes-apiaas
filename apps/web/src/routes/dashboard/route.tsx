@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { Github, LayoutDashboard, Settings2 } from "lucide-react";
+import { Bot, Github, LayoutDashboard, Settings2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { orpc } from "@/utils/orpc";
 
@@ -27,6 +27,11 @@ function RouteComponent() {
 			to: "/dashboard",
 			label: "Overview",
 			icon: <LayoutDashboard className="h-4 w-4" />,
+		},
+		{
+			to: "/dashboard/playground",
+			label: "Playground",
+			icon: <Bot className="h-4 w-4" />,
 		},
 		{
 			to: "/dashboard/settings",

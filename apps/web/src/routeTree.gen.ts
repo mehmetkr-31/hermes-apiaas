@@ -14,8 +14,10 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardPlaygroundRouteImport } from './routes/dashboard/playground'
 import { Route as DashboardSettingsRouteRouteImport } from './routes/dashboard/settings.route'
 import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard/settings.index'
+import { Route as DashboardSettingsSecretsRouteImport } from './routes/dashboard/settings.secrets'
 import { Route as DashboardSettingsLogsRouteImport } from './routes/dashboard/settings.logs'
 import { Route as DashboardSettingsActivityRouteImport } from './routes/dashboard/settings.activity'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
@@ -46,6 +48,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardPlaygroundRoute = DashboardPlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardSettingsRouteRoute = DashboardSettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -56,6 +63,12 @@ const DashboardSettingsIndexRoute = DashboardSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardSettingsRouteRoute,
 } as any)
+const DashboardSettingsSecretsRoute =
+  DashboardSettingsSecretsRouteImport.update({
+    id: '/secrets',
+    path: '/secrets',
+    getParentRoute: () => DashboardSettingsRouteRoute,
+  } as any)
 const DashboardSettingsLogsRoute = DashboardSettingsLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -84,22 +97,26 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
   '/dashboard/settings': typeof DashboardSettingsRouteRouteWithChildren
+  '/dashboard/playground': typeof DashboardPlaygroundRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/dashboard/settings/activity': typeof DashboardSettingsActivityRoute
   '/dashboard/settings/logs': typeof DashboardSettingsLogsRoute
+  '/dashboard/settings/secrets': typeof DashboardSettingsSecretsRoute
   '/dashboard/settings/': typeof DashboardSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
+  '/dashboard/playground': typeof DashboardPlaygroundRoute
   '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/dashboard/settings/activity': typeof DashboardSettingsActivityRoute
   '/dashboard/settings/logs': typeof DashboardSettingsLogsRoute
+  '/dashboard/settings/secrets': typeof DashboardSettingsSecretsRoute
   '/dashboard/settings': typeof DashboardSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -109,11 +126,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/todos': typeof TodosRoute
   '/dashboard/settings': typeof DashboardSettingsRouteRouteWithChildren
+  '/dashboard/playground': typeof DashboardPlaygroundRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/dashboard/settings/activity': typeof DashboardSettingsActivityRoute
   '/dashboard/settings/logs': typeof DashboardSettingsLogsRoute
+  '/dashboard/settings/secrets': typeof DashboardSettingsSecretsRoute
   '/dashboard/settings/': typeof DashboardSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -124,22 +143,26 @@ export interface FileRouteTypes {
     | '/login'
     | '/todos'
     | '/dashboard/settings'
+    | '/dashboard/playground'
     | '/dashboard/'
     | '/api/auth/$'
     | '/api/rpc/$'
     | '/dashboard/settings/activity'
     | '/dashboard/settings/logs'
+    | '/dashboard/settings/secrets'
     | '/dashboard/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/todos'
+    | '/dashboard/playground'
     | '/dashboard'
     | '/api/auth/$'
     | '/api/rpc/$'
     | '/dashboard/settings/activity'
     | '/dashboard/settings/logs'
+    | '/dashboard/settings/secrets'
     | '/dashboard/settings'
   id:
     | '__root__'
@@ -148,11 +171,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/todos'
     | '/dashboard/settings'
+    | '/dashboard/playground'
     | '/dashboard/'
     | '/api/auth/$'
     | '/api/rpc/$'
     | '/dashboard/settings/activity'
     | '/dashboard/settings/logs'
+    | '/dashboard/settings/secrets'
     | '/dashboard/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -202,6 +227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/playground': {
+      id: '/dashboard/playground'
+      path: '/playground'
+      fullPath: '/dashboard/playground'
+      preLoaderRoute: typeof DashboardPlaygroundRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/settings': {
       id: '/dashboard/settings'
       path: '/settings'
@@ -214,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/dashboard/settings/'
       preLoaderRoute: typeof DashboardSettingsIndexRouteImport
+      parentRoute: typeof DashboardSettingsRouteRoute
+    }
+    '/dashboard/settings/secrets': {
+      id: '/dashboard/settings/secrets'
+      path: '/secrets'
+      fullPath: '/dashboard/settings/secrets'
+      preLoaderRoute: typeof DashboardSettingsSecretsRouteImport
       parentRoute: typeof DashboardSettingsRouteRoute
     }
     '/dashboard/settings/logs': {
@@ -250,6 +289,7 @@ declare module '@tanstack/react-router' {
 interface DashboardSettingsRouteRouteChildren {
   DashboardSettingsActivityRoute: typeof DashboardSettingsActivityRoute
   DashboardSettingsLogsRoute: typeof DashboardSettingsLogsRoute
+  DashboardSettingsSecretsRoute: typeof DashboardSettingsSecretsRoute
   DashboardSettingsIndexRoute: typeof DashboardSettingsIndexRoute
 }
 
@@ -257,6 +297,7 @@ const DashboardSettingsRouteRouteChildren: DashboardSettingsRouteRouteChildren =
   {
     DashboardSettingsActivityRoute: DashboardSettingsActivityRoute,
     DashboardSettingsLogsRoute: DashboardSettingsLogsRoute,
+    DashboardSettingsSecretsRoute: DashboardSettingsSecretsRoute,
     DashboardSettingsIndexRoute: DashboardSettingsIndexRoute,
   }
 
@@ -267,11 +308,13 @@ const DashboardSettingsRouteRouteWithChildren =
 
 interface DashboardRouteRouteChildren {
   DashboardSettingsRouteRoute: typeof DashboardSettingsRouteRouteWithChildren
+  DashboardPlaygroundRoute: typeof DashboardPlaygroundRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardSettingsRouteRoute: DashboardSettingsRouteRouteWithChildren,
+  DashboardPlaygroundRoute: DashboardPlaygroundRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 

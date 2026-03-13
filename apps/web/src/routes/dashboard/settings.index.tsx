@@ -11,16 +11,19 @@ import { Label } from "@agiaas/ui/components/label";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+	Bot,
+	Check,
 	Eye,
 	EyeOff,
 	GitBranch,
 	Github,
 	Key,
 	Link2,
+	Plus,
 	Trash2,
 	Webhook,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { orpc } from "../../utils/orpc";
 
 export const Route = createFileRoute("/dashboard/settings/")({
@@ -99,25 +102,19 @@ function GeneralSettings() {
 		refetchInterval: 5000,
 	});
 
-	const { data: telegramConfig } = useQuery({
-		...orpc.github.getGlobalTelegramBotConfig.queryOptions(),
+	const { data: botsData } = useQuery({
+		...orpc.bots.listBots.queryOptions(),
 		refetchInterval: 5000,
 	});
 
-	const [tgForm, setTgForm] = useState({ telegramBotToken: "" });
-	const [seededTg, setSeededTg] = useState(false);
-	useEffect(() => {
-		if (!seededTg && telegramConfig?.telegramBotToken) {
-			setTgForm({ telegramBotToken: telegramConfig.telegramBotToken });
-			setSeededTg(true);
-		}
-	}, [telegramConfig, seededTg]);
+	const [botToken, setBotToken] = useState("");
 
 	const [form, setForm] = useState({
 		githubWebhookSecret: "",
 		telegramChatId: "",
-		telegramBotToken: "",
+		botId: "",
 		selectedRepo: "",
+		llmModel: "NousResearch/Hermes-3-Llama-3.1-405B",
 	});
 	const set = (key: keyof typeof form) => (v: string) =>
 		setForm((f) => ({ ...f, [key]: v }));
@@ -131,7 +128,7 @@ function GeneralSettings() {
 					...f,
 					githubWebhookSecret: "",
 					telegramChatId: "",
-					telegramBotToken: "",
+					botId: "",
 				}));
 			},
 		}),
@@ -149,8 +146,23 @@ function GeneralSettings() {
 		}),
 	);
 
-	const saveTgMutation = useMutation(
-		orpc.github.saveGlobalTelegramBotConfig.mutationOptions({
+	const addBotMutation = useMutation(
+		orpc.bots.addBot.mutationOptions({
+			onSuccess: () => {
+				queryClient.invalidateQueries();
+				setBotToken("");
+			},
+		}),
+	);
+
+	const deleteBotMutation = useMutation(
+		orpc.bots.deleteBot.mutationOptions({
+			onSuccess: () => queryClient.invalidateQueries(),
+		}),
+	);
+
+	const setPrimaryBotMutation = useMutation(
+		orpc.bots.setPrimaryBot.mutationOptions({
 			onSuccess: () => queryClient.invalidateQueries(),
 		}),
 	);
@@ -168,6 +180,8 @@ function GeneralSettings() {
 		...orpc.github.getGhCliUser.queryOptions(),
 		staleTime: 60_000,
 	});
+
+	const bots = botsData?.bots ?? [];
 
 	const { data: webhookStatus } = useQuery({
 		...orpc.github.getWebhookStatus.queryOptions(),
@@ -239,11 +253,11 @@ function GeneralSettings() {
 							}
 						/>
 						<StatusDot
-							ok={!!telegramConfig?.telegramBotToken}
+							ok={bots.length > 0}
 							label={
-								telegramConfig?.telegramBotToken
-									? "Telegram Bot Configured"
-									: "Telegram Bot Token Missing"
+								bots.length > 0
+									? `${bots.length} Bots Active`
+									: "No Bots Configured"
 							}
 						/>
 					</CardContent>
@@ -338,7 +352,7 @@ function GeneralSettings() {
 										</div>
 									</CardHeader>
 									<CardContent className="space-y-4 text-muted-foreground text-xs">
-										<div className="flex gap-4">
+										<div className="flex flex-wrap gap-4">
 											<div>
 												<span className="font-semibold text-foreground">
 													Chat ID:
@@ -349,7 +363,15 @@ function GeneralSettings() {
 												<span className="font-semibold text-foreground">
 													Bot:
 												</span>{" "}
-												{p.telegramBotToken ? "✅ Set" : "❌ Global"}
+												{p.botId ? (
+													<span className="inline-flex items-center gap-1 text-primary">
+														@
+														{bots.find((b) => b.id === p.botId)?.username ||
+															"Unknown"}
+													</span>
+												) : (
+													<span className="text-amber-500">❌ Not Linked</span>
+												)}
 											</div>
 											<div>
 												<span className="font-semibold text-foreground">
@@ -373,14 +395,37 @@ function GeneralSettings() {
 												}
 												className="rounded border bg-background px-2 py-1 font-medium text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
 											>
-												<option value="gpt-4o-mini">GPT-4o Mini</option>
-												<option value="gpt-4o">GPT-4o</option>
-												<option value="claude-3-5-sonnet-latest">
-													Claude 3.5 Sonnet
-												</option>
-												<option value="claude-3-5-haiku-latest">
-													Claude 3.5 Haiku
-												</option>
+												<optgroup label="NousResearch (Recommended)">
+													<option value="NousResearch/Hermes-3-Llama-3.1-405B">
+														Hermes 3 Llama 3.1 405B
+													</option>
+													<option value="NousResearch/Hermes-3-Llama-3.1-70B">
+														Hermes 3 Llama 3.1 70B
+													</option>
+													<option value="NousResearch/Hermes-3-Llama-3.1-8B">
+														Hermes 3 Llama 3.1 8B
+													</option>
+												</optgroup>
+												<optgroup label="OpenAI">
+													<option value="gpt-4o">GPT-4o</option>
+													<option value="gpt-4o-mini">GPT-4o Mini</option>
+												</optgroup>
+												<optgroup label="Anthropic">
+													<option value="anthropic/claude-3-5-sonnet">
+														Claude 3.5 Sonnet
+													</option>
+													<option value="anthropic/claude-3-5-haiku">
+														Claude 3.5 Haiku
+													</option>
+												</optgroup>
+												<optgroup label="Other">
+													<option value="deepseek/deepseek-chat">
+														DeepSeek V3
+													</option>
+													<option value="meta-llama/llama-3.3-70b-instruct">
+														Llama 3.3 70B
+													</option>
+												</optgroup>
 											</select>
 											{updateModelMutation.isPending && (
 												<span className="animate-pulse text-[10px]">
@@ -453,14 +498,70 @@ function GeneralSettings() {
 							</p>
 						</div>
 
-						<SecretInput
-							id="projectTgToken"
-							label="Telegram Bot Token"
-							value={form.telegramBotToken}
-							onChange={set("telegramBotToken")}
-							placeholder="Project-specific bot token (optional)"
-							hint="Leave empty to use the global bot token"
-						/>
+						<div className="space-y-1.5">
+							<Label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+								Telegram Bot
+							</Label>
+							<select
+								value={form.botId}
+								onChange={(e) => set("botId")(e.target.value)}
+								className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+							>
+								<option value="">Select a bot...</option>
+								{bots.map((b) => (
+									<option key={b.id} value={b.id}>
+										@{b.username} ({b.name})
+									</option>
+								))}
+							</select>
+							<p className="text-[11px] text-muted-foreground">
+								Select which bot will handle notifications for this project.
+							</p>
+						</div>
+
+						<div className="space-y-1.5">
+							<Label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+								Hermes Brain (Model)
+							</Label>
+							<select
+								value={form.llmModel}
+								onChange={(e) => set("llmModel")(e.target.value)}
+								className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+							>
+								<optgroup label="NousResearch (Recommended)">
+									<option value="NousResearch/Hermes-3-Llama-3.1-405B">
+										Hermes 3 Llama 3.1 405B
+									</option>
+									<option value="NousResearch/Hermes-3-Llama-3.1-70B">
+										Hermes 3 Llama 3.1 70B
+									</option>
+									<option value="NousResearch/Hermes-3-Llama-3.1-8B">
+										Hermes 3 Llama 3.1 8B
+									</option>
+								</optgroup>
+								<optgroup label="OpenAI">
+									<option value="gpt-4o">GPT-4o</option>
+									<option value="gpt-4o-mini">GPT-4o Mini</option>
+								</optgroup>
+								<optgroup label="Anthropic">
+									<option value="anthropic/claude-3-5-sonnet">
+										Claude 3.5 Sonnet
+									</option>
+									<option value="anthropic/claude-3-5-haiku">
+										Claude 3.5 Haiku
+									</option>
+								</optgroup>
+								<optgroup label="Other">
+									<option value="deepseek/deepseek-chat">DeepSeek V3</option>
+									<option value="meta-llama/llama-3.3-70b-instruct">
+										Llama 3.3 70B
+									</option>
+								</optgroup>
+							</select>
+							<p className="text-[11px] text-muted-foreground">
+								This model will be used to analyze issues and propose fixes.
+							</p>
+						</div>
 
 						<Button
 							onClick={() =>
@@ -468,7 +569,8 @@ function GeneralSettings() {
 									repoFullName: form.selectedRepo,
 									webhookSecret: form.githubWebhookSecret,
 									telegramChatId: form.telegramChatId,
-									telegramBotToken: form.telegramBotToken || undefined,
+									botId: form.botId || undefined,
+									llmModel: form.llmModel,
 								})
 							}
 							disabled={
@@ -484,32 +586,110 @@ function GeneralSettings() {
 					</CardContent>
 				</Card>
 
-				{/* ── Global Telegram Config ── */}
+				{/* ── Bot Management ── */}
 				<Card>
 					<CardHeader>
 						<CardTitle className="flex items-center gap-2">
-							GitHub Bot Configuration
+							<Bot className="h-5 w-5 text-primary" />
+							Bot Management
 						</CardTitle>
 						<CardDescription>
-							Set the global Telegram Bot Token used by all monitored projects.
+							Register and manage Telegram bots. We'll automatically fetch their
+							profile info.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
-						<SecretInput
-							id="tgToken"
-							label="Global Bot Token"
-							value={tgForm.telegramBotToken}
-							onChange={(val) => setTgForm({ telegramBotToken: val })}
-							placeholder="Bot Token from @BotFather"
-						/>
-						<Button
-							onClick={() => saveTgMutation.mutate(tgForm)}
-							disabled={saveTgMutation.isPending || !tgForm.telegramBotToken}
-							variant="secondary"
-							className="gap-2"
-						>
-							{saveTgMutation.isPending ? "Saving..." : "Save Bot Token"}
-						</Button>
+					<CardContent className="space-y-6">
+						{/* Add Bot Form */}
+						<div className="flex gap-2">
+							<div className="relative flex-1">
+								<Key className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+								<Input
+									value={botToken}
+									onChange={(e) => setBotToken(e.target.value)}
+									placeholder="Enter Bot Token (from @BotFather)"
+									className="pl-9 font-mono text-sm"
+									type="password"
+								/>
+							</div>
+							<Button
+								onClick={() => addBotMutation.mutate({ token: botToken })}
+								disabled={addBotMutation.isPending || !botToken}
+								className="gap-2"
+							>
+								{addBotMutation.isPending ? (
+									<span className="animate-spin">⌛</span>
+								) : (
+									<Plus className="h-4 w-4" />
+								)}
+								Add Bot
+							</Button>
+						</div>
+
+						{/* Bot List */}
+						<div className="grid gap-3">
+							{bots.length === 0 ? (
+								<p className="py-4 text-center text-muted-foreground text-xs italic">
+									No bots registered yet.
+								</p>
+							) : (
+								bots.map((bot) => (
+									<div
+										key={bot.id}
+										className="flex items-center justify-between rounded-lg border bg-card p-3 transition-colors hover:bg-accent/5"
+									>
+										<div className="flex items-center gap-3">
+											<div className="h-10 w-10 overflow-hidden rounded-full border bg-muted">
+												{bot.avatarUrl ? (
+													<img
+														src={bot.avatarUrl}
+														alt={bot.name}
+														className="h-full w-full object-cover"
+													/>
+												) : (
+													<div className="flex h-full w-full items-center justify-center text-muted-foreground">
+														<Bot className="h-5 w-5" />
+													</div>
+												)}
+											</div>
+											<div>
+												<h4 className="font-bold text-sm leading-none">
+													{bot.name}
+												</h4>
+												<p className="text-muted-foreground text-xs">
+													@{bot.username}
+												</p>
+											</div>
+										</div>
+										<div className="flex items-center gap-2">
+											{bot.isPrimary && (
+												<span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary text-xs">
+													<Check className="h-3 w-3" />
+													Primary
+												</span>
+											)}
+											{!bot.isPrimary && (
+												<button
+													type="button"
+													onClick={() =>
+														setPrimaryBotMutation.mutate({ id: bot.id })
+													}
+													className="rounded-md border px-2 py-1 font-medium text-[10px] transition-colors hover:bg-accent"
+												>
+													Make Primary
+												</button>
+											)}
+											<button
+												type="button"
+												className="rounded p-1 text-muted-foreground hover:text-destructive"
+												onClick={() => deleteBotMutation.mutate({ id: bot.id })}
+											>
+												<Trash2 className="h-4 w-4" />
+											</button>
+										</div>
+									</div>
+								))
+							)}
+						</div>
 					</CardContent>
 				</Card>
 			</div>

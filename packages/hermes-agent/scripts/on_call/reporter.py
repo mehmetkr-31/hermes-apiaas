@@ -14,11 +14,13 @@ Database:
 import os
 import pathlib
 import threading
+import subprocess
 import time
 import logging
 import sqlite3
 import asyncio
 import json
+import re
 from typing import Optional, Dict, Any
 from datetime import datetime
 from dotenv import load_dotenv
@@ -31,20 +33,28 @@ from encryption_utils import decrypt
 
 load_dotenv()
 
+# Static Configuration Defaults (User requested static models)
+DEFAULT_MODEL = "anthropic/claude-3-5-sonnet"
+DEFAULT_NOUS_MODEL = "Hermes-4-405B" # Reverting to the old fallback that worked
+
 # Pathing setup
-WORKING_DIR  = pathlib.Path(__file__).parent.parent.parent.resolve()
-PROJECT_ROOT = WORKING_DIR.parent.parent
+PROJECT_ROOT = pathlib.Path("/Users/alikar/dev/hermes-apiaas")
+WORKING_DIR  = PROJECT_ROOT / "packages" / "hermes-agent"
 DB_FILE      = PROJECT_ROOT / "local.db"
-LOG_FILE     = WORKING_DIR / "agent" / "on_call_logs" / "monitoring.jsonl"
-DATA_DIR      = PROJECT_ROOT.parent.resolve() / ".tmp"
+LOG_FILE_PATH = WORKING_DIR / "agent" / "on_call_logs" / "monitoring.jsonl"
+DATA_DIR     = PROJECT_ROOT / ".tmp"
+
+# Log the discovery for debugging
+logging.info(f"📍 Database Discovery: Using {DB_FILE} (Project Root: {PROJECT_ROOT})")
 
 # Load root .env
 root_env = PROJECT_ROOT / ".env"
 if root_env.exists():
     load_dotenv(dotenv_path=root_env)
-    # AIAgent looks for OPENROUTER_API_KEY. If NOUS_API_KEY is provided in root, use it.
+    # AIAgent looks for OPENROUTER_API_KEY. If NOUS_API_KEY is present, map it as priority.
     if os.getenv("NOUS_API_KEY") and not os.getenv("OPENROUTER_API_KEY"):
         os.environ["OPENROUTER_API_KEY"] = os.environ["NOUS_API_KEY"]
+        logging.info("🔑 Mapped NOUS_API_KEY to OPENROUTER_API_KEY for agent initialization.")
 else:
     load_dotenv() # Fallback to local
 
@@ -52,25 +62,135 @@ else:
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 NOUS_API_BASE_URL = "https://inference-api.nousresearch.com/v1"
 
-def get_global_config(key: str) -> str:
-    """Read a value from the global_config table in SQLite."""
-    val = os.getenv(key, "")
-    if val: return val
+
+def get_standardized_model(model_name: str, api_key: str = "") -> str:
+    """Map human model names to API-specific IDs and handle prefixes."""
+    key_prefix = str(api_key)[:10] if api_key else "none"
+    logging.info(f"🔍 Standardizing: '{model_name}' (Key: {key_prefix}...)")
+    if not model_name: 
+        logging.warning("⚠️ Empty model name! Using default fallback.")
+        return "anthropic/claude-3-5-sonnet"
+    
+    # 1. Map human names to API internal names
+    mapping = {
+        "Hermes-4-405B": "Hermes-4-405B",
+        "Hermes-3-Llama-3.1-405B": "Hermes-3-Llama-3.1-405B",
+    }
+    
+    standardized = mapping.get(model_name, model_name)
+    
+    # 2. Strip NousResearch/ prefix if using direct Nous API
+    is_nous = bool(api_key and api_key.startswith("sk-2yd"))
+    if is_nous and standardized.startswith("NousResearch/"):
+        standardized = standardized.replace("NousResearch/", "")
+    
+    logging.info(f"🎯 Standardized result: '{standardized}'")
+    return standardized
+
+def log_step(msg: str, prefix: str = "AGENT"):
+    """Append a structured log line to the central monitoring file."""
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    line = f"[{timestamp}] 🧩 {prefix} | {msg}\n"
+    try:
+        if not LOG_FILE_PATH.parent.exists():
+            LOG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(LOG_FILE_PATH, "a") as f:
+            f.write(line)
+    except Exception as e:
+        logging.warning(f"Failed to write to monitoring log: {e}")
+    logging.info(f"Steplog: {msg}")
+
+def get_project_config(repo_full_name: str, key: str) -> str:
+    """Read a project-specific value (like llm_model) from hermes_project table."""
+    # HARDCODED STATIC FALLBACKS
+    if key == "llmModel":
+        active_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("NOUS_API_KEY")
+        is_nous = bool(active_key and active_key.startswith("sk-2yd"))
+        return DEFAULT_NOUS_MODEL if is_nous else DEFAULT_MODEL
+
+    try:
+        if DB_FILE.exists():
+            with sqlite3.connect(f"file:{DB_FILE}?mode=ro", uri=True) as conn:
+                cur = conn.cursor()
+                column_map = {
+                    "llmModel": "llm_model",
+                    "webhookSecret": "webhook_secret",
+                    "telegramChatId": "telegram_chat_id"
+                }
+                column = column_map.get(key, key)
+                cur.execute(f"SELECT {column} FROM hermes_project WHERE repo_full_name = ?", (repo_full_name,))
+                row = cur.fetchone()
+                if row:
+                    val = row[0]
+                    if key == "webhookSecret" and val:
+                        return decrypt(val)
+                    if key == "llmModel" and val and val.startswith("NousResearch/"):
+                        if os.getenv("NOUS_API_KEY"):
+                            return val.replace("NousResearch/", "")
+                    return val or ""
+    except Exception as e:
+        logging.error(f"❌ Failed to read project config {key} for {repo_full_name}: {e}")
+    
+    return ""
+
+def get_primary_bot_token() -> str:
+    """Read the primary bot token from hermes_bots table."""
     try:
         if DB_FILE.exists():
             with sqlite3.connect(DB_FILE) as conn:
                 cur = conn.cursor()
-                cur.execute("SELECT value FROM global_config WHERE key = ?", (key,))
+                cur.execute("SELECT token FROM hermes_bots WHERE is_primary = 1 LIMIT 1")
                 row = cur.fetchone()
-                if row: return decrypt(row[0]) if key in ["TELEGRAM_BOT_TOKEN"] else row[0]
+                if row: return decrypt(row[0])
     except Exception as e:
-        logging.error(f"Failed to read {key} from DB: {e}")
+        logging.error(f"Failed to read primary bot from DB: {e}")
     return ""
 
-TELEGRAM_TOKEN = get_global_config("TELEGRAM_BOT_TOKEN")
-CHAT_ID        = get_global_config("TELEGRAM_CHAT_ID")
-ALLOWED_USERS  = get_global_config("TELEGRAM_ALLOWED_USERS") # Comma-separated IDs
-HERMES_CMD     = os.getenv("HERMES_CMD", "hermes")
+def get_telegram_context(repo_full_name: str) -> tuple[str, str]:
+    """Returns (bot_token, chat_id) for a specific repo."""
+    try:
+        if DB_FILE.exists():
+            with sqlite3.connect(DB_FILE) as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT telegram_chat_id, bot_id FROM hermes_project WHERE repo_full_name = ?", (repo_full_name,))
+                row = cur.fetchone()
+                if not row:
+                    logging.warning(f"Project {repo_full_name} not found in DB.")
+                    return "", ""
+                
+                chat_id, bot_id = row
+                bot_token = ""
+                
+                if bot_id:
+                    cur.execute("SELECT token FROM hermes_bots WHERE id = ?", (bot_id,))
+                    bot_row = cur.fetchone()
+                    if bot_row:
+                        bot_token = decrypt(bot_row[0])
+                
+                if not bot_token:
+                    bot_token = get_primary_bot_token()
+                
+                return bot_token, chat_id
+    except Exception as e:
+        logging.error(f"Failed to get telegram context: {e}")
+    return "", ""
+
+
+def ensure_repo_cloned(owner: Optional[str], repo: Optional[str]) -> pathlib.Path:
+    """Clone or pull the target repository into .tmp/owner/repo"""
+    if not owner or not repo:
+        raise ValueError("Owner and repo must be provided")
+    repo_dir = DATA_DIR / str(owner) / str(repo)
+    repo_dir.parent.mkdir(parents=True, exist_ok=True)
+    
+    if not repo_dir.exists():
+        logging.info(f"🚚 Cloning {owner}/{repo} into {repo_dir}")
+        subprocess.run(["git", "clone", f"https://github.com/{owner}/{repo}.git", str(repo_dir)], check=True)
+    else:
+        logging.info(f"🔄 Updating {owner}/{repo} in {repo_dir}")
+        subprocess.run(["git", "-C", str(repo_dir), "pull"], check=True)
+    return repo_dir
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -134,14 +254,14 @@ def get_approval_status(approval_id: str) -> str:
 
 # ── Blocking Approval Mechanism ─────────────────────────────────────────────
 
-async def _request_approval_async(text: str, approval_id: str, timeout: int = 300, token: Optional[str] = None) -> bool:
+async def _request_approval_async(text: str, approval_id: str, repo_full_name: str, timeout: int = 300) -> bool:
     """Internal async logic to send a message with buttons and poll the DB."""
-    use_token = token or TELEGRAM_TOKEN
-    if not use_token or not CHAT_ID:
-        logging.warning("Telegram not configured. Auto-approving for development.")
+    bot_token, chat_id = get_telegram_context(repo_full_name)
+    if not bot_token or not chat_id:
+        logging.warning(f"Telegram not configured for {repo_full_name}. Auto-approving for development.")
         return True
 
-    bot = telegram.Bot(token=use_token)
+    bot = telegram.Bot(token=bot_token)
     keyboard = [
         [
             InlineKeyboardButton("✅ Approve", callback_data=f"appr_{approval_id}"),
@@ -152,7 +272,7 @@ async def _request_approval_async(text: str, approval_id: str, timeout: int = 30
     
     try:
         msg = await bot.send_message(
-            chat_id=CHAT_ID,
+            chat_id=chat_id,
             text=f"🛡 *HERMES NEEDS YOUR PERMISSION*\n\n{text}",
             parse_mode="Markdown",
             reply_markup=reply_markup
@@ -174,7 +294,7 @@ async def _request_approval_async(text: str, approval_id: str, timeout: int = 30
         # Timeout handling
         logging.warning(f"⏰ Approval {approval_id} timed out.")
         await bot.edit_message_text(
-            chat_id=CHAT_ID,
+            chat_id=chat_id,
             message_id=msg.message_id,
             text=f"⏰ *TIMEOUT*\n\n{text}\n\n_Auto-rejected after {timeout}s by system._"
         )
@@ -184,7 +304,7 @@ async def _request_approval_async(text: str, approval_id: str, timeout: int = 30
         logging.error(f"Approval request failed for {approval_id}: {e}")
         return False
 
-def request_approval(text: str, approval_id: str, timeout: int = 300, token: Optional[str] = None) -> bool:
+def request_approval(text: str, approval_id: str, repo_full_name: str, timeout: int = 300) -> bool:
     """
     Synchronous blocking call for agents. 
     Sends message with buttons and waits for user interaction in Telegram.
@@ -192,20 +312,21 @@ def request_approval(text: str, approval_id: str, timeout: int = 300, token: Opt
     logging.info(f"⏳ Waiting for user approval on {approval_id} via Telegram...")
     try:
         # Create a new loop for this sync call if none exists
-        return asyncio.run(_request_approval_async(text, approval_id, timeout, token=token))
+        return asyncio.run(_request_approval_async(text, approval_id, repo_full_name, timeout))
     except Exception as e:
         logging.error(f"Error in request_approval sync wrapper: {e}")
         return False
 
 # ── Message Utilities ──────────────────────────────────────────────────────
 
-def send_telegram_message(text: str, chat_id: Optional[str] = None, token: Optional[str] = None) -> bool:
+def send_telegram_message(text: str, repo_full_name: str) -> bool:
     """Simplified one-shot SDK message sender."""
-    use_token = token or TELEGRAM_TOKEN
-    if not use_token or not (chat_id or CHAT_ID): return False
+    bot_token, chat_id = get_telegram_context(repo_full_name)
+    if not bot_token or not chat_id:
+        return False
     async def _send():
-        bot = telegram.Bot(token=use_token)
-        await bot.send_message(chat_id=(chat_id or CHAT_ID), text=text, parse_mode="Markdown")
+        bot = telegram.Bot(token=bot_token)
+        await bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
     try:
         asyncio.run(_send())
         return True
@@ -261,11 +382,11 @@ async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.args and context.args[0].isdigit():
         n = int(context.args[0])
     
-    if not LOG_FILE.exists():
+    if not LOG_FILE_PATH.exists():
         await update.message.reply_text("📭 No monitoring logs found.")
         return
     
-    with open(LOG_FILE, "r") as f:
+    with open(LOG_FILE_PATH, "r") as f:
         lines = f.readlines()
     snippet = "".join(lines[-n:])[-3500:]
     await update.message.reply_text(f"📄 *Last {n} log lines:*\n```\n{snippet}\n```", parse_mode="Markdown")
@@ -296,13 +417,21 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message_text.strip():
         return
 
-    # Security: Check allowlist
+    # Security: Check allowlist from db
     if not update.effective_user or not update.effective_chat: return
     user_id = str(update.effective_user.id)
-    allowed_list = [u.strip() for u in ALLOWED_USERS.split(",") if u.strip()]
     
-    # If ALLOWED_USERS is empty, we permit the default CHAT_ID
-    if allowed_list and user_id not in allowed_list:
+    is_allowed = False
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT 1 FROM hermes_project WHERE telegram_chat_id = ?", (user_id,))
+            if cur.fetchone():
+                is_allowed = True
+    except:
+        pass
+        
+    if not is_allowed:
         logging.warning(f"🚫 Unauthorized chat attempt from {user_id}")
         await update.message.reply_text("⛔️ You are not authorized to use this commander.")
         return
@@ -326,8 +455,8 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Determine base_url and default model
         is_nous = active_key and active_key.startswith("sk-2yd")
         target_base_url = NOUS_API_BASE_URL if is_nous else OPENROUTER_BASE_URL
-        fallback_model   = "Hermes-4-405B" if is_nous else "anthropic/claude-3-5-sonnet"
-        target_model     = get_global_config("MODEL") or fallback_model
+        fallback_model   = "NousResearch/Hermes-3-Llama-3.1-405B" if is_nous else "anthropic/claude-3-5-sonnet"
+        target_model = fallback_model
         
         # Fetch projects to provide context
         projects = []
@@ -458,15 +587,16 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def start_bot():
     """Main entry point for the long-running bot service."""
-    if not TELEGRAM_TOKEN:
-        logging.warning("TELEGRAM_BOT_TOKEN not set. Interactive bot disabled.")
+    primary_token = get_primary_bot_token()
+    if not primary_token:
+        logging.warning("Primary Bot Token not set in DB. Interactive bot disabled.")
         return
 
     # PTB v20+ requires an event loop in the thread
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    application = Application.builder().token(primary_token).build()
     
     application.add_handler(CommandHandler("start", help_command))
     application.add_handler(CommandHandler("help", help_command))
@@ -487,6 +617,8 @@ def start_bot():
             close_loop=False
         )
         logging.info("🤖 run_polling has exited.")
+    except telegram.error.InvalidToken as token_err:
+        logging.warning(f"⚠️ Telegram token rejected: {token_err}. Interactive features disabled.")
     except Exception as poll_err:
         logging.error(f"❌ Critical error in run_polling: {poll_err}", exc_info=True)
 

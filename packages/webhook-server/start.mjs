@@ -14,11 +14,49 @@
  */
 
 import { spawn, execSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
+import "dotenv/config";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load .env from project root
+try {
+	const rootEnvPath = resolve(__dirname, "../../.env");
+	const envConfig = readFileSync(rootEnvPath, "utf-8");
+	for (const line of envConfig.split("\n")) {
+		const [key, ...valueParts] = line.split("=");
+		if (key && valueParts.length > 0) {
+			process.env[key.trim()] = valueParts.join("=").trim();
+		}
+	}
+} catch (err) {
+	console.warn(`[webhook-server] ⚠️ Could not load root .env: ${err.message}`);
+}
+
+function decrypt(hash) {
+	const secret = process.env.DB_ENCRYPTION_KEY;
+	if (!secret) return hash;
+
+	// Ensure the key is 32 bytes for AES-256
+	let key = Buffer.from(secret, "utf8");
+	if (key.length !== 32) {
+		key = crypto.createHash("sha256").update(secret).digest();
+	}
+
+	const buffer = Buffer.from(hash, "base64");
+	const iv = buffer.subarray(0, 12);
+	const tag = buffer.subarray(12, 28);
+	const encrypted = buffer.subarray(28);
+
+	const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+	decipher.setAuthTag(tag);
+
+	const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+	return decrypted.toString("utf8");
+}
 const RECEIVER_SCRIPT = resolve(
 	__dirname,
 	"../hermes-agent/scripts/on_call/webhook_receiver.py",
@@ -67,11 +105,12 @@ async function updateGithubWebhooks(newUrl) {
 			}
 
 			// 3. Update hook
+			const rawSecret = decrypt(secret);
 			const patchData = JSON.stringify({
 				config: {
 					url: fullWebhookUrl,
 					content_type: "json",
-					secret: secret,
+					secret: rawSecret,
 				},
 			});
 
@@ -84,7 +123,7 @@ async function updateGithubWebhooks(newUrl) {
 }
 
 // ── 1. Start webhook_receiver.py ──────────────────────────────────────────────
-const VENV_PYTHON = resolve(__dirname, "../hermes-agent/.venv/bin/python");
+const VENV_PYTHON = resolve(__dirname, "../../.venv/bin/python");
 const receiver = spawn(VENV_PYTHON, [RECEIVER_SCRIPT], {
 	stdio: "inherit",
 	env: { ...process.env },

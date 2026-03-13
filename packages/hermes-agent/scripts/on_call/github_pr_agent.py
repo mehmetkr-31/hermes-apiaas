@@ -8,31 +8,22 @@ from typing import Optional
 from datetime import datetime
 from dotenv import load_dotenv
 from run_agent import AIAgent
-from reporter import send_telegram_message, request_approval, get_global_config, NOUS_API_BASE_URL, OPENROUTER_BASE_URL
+from reporter import (
+    send_telegram_message, get_project_config,
+    request_approval, ensure_repo_cloned, DATA_DIR,
+    get_standardized_model, log_step as central_log_step,
+    NOUS_API_BASE_URL, OPENROUTER_BASE_URL
+)
 
 load_dotenv()
 AGENT_ROOT  = pathlib.Path(__file__).parent.parent.parent.resolve()
-DATA_DIR    = AGENT_ROOT.parent.parent.resolve() / ".tmp"
 LOG_DIR     = AGENT_ROOT / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
-def ensure_repo_cloned(owner: Optional[str], repo: Optional[str]) -> pathlib.Path:
-    """Clone or pull the target repository into .tmp/owner/repo"""
-    if not owner or not repo:
-        raise ValueError("Owner and repo must be provided")
-    repo_dir = DATA_DIR / str(owner) / str(repo)
-    repo_dir.parent.mkdir(parents=True, exist_ok=True)
-    
-    if not repo_dir.exists():
-        logging.info(f"🚚 Cloning {owner}/{repo} into {repo_dir}")
-        subprocess.run(["git", "clone", f"https://github.com/{owner}/{repo}.git", str(repo_dir)], check=True)
-    else:
-        logging.info(f"🔄 Updating {owner}/{repo} in {repo_dir}")
-        subprocess.run(["git", "-C", str(repo_dir), "pull"], check=True)
-    return repo_dir
+# Removed local ensure_repo_cloned (now in reporter.py)
 
 
 def handle_pr(pr_number: int, title: str = "", author: str = "", owner: Optional[str] = None, repo: Optional[str] = None, bot_token: Optional[str] = None):
@@ -42,8 +33,7 @@ def handle_pr(pr_number: int, title: str = "", author: str = "", owner: Optional
     repo_path = ensure_repo_cloned(owner, repo)
 
     send_telegram_message(
-        f"🔀 *GitHub PR #{pr_number}* at {owner}/{repo}\n*{title}*\nby {author}\n\n🔍 Hermes reviewing...",
-        token=bot_token
+        f"🔀 *GitHub PR #{pr_number}* at {owner}/{repo}\n*{title}*\nby {author}\n\n🔍 Hermes reviewing...", repo_full_name=f"{owner}/{repo}"
     )
 
     prompt = f"""Review the following GitHub Pull Request #{pr_number} in {owner}/{repo}:
@@ -53,9 +43,9 @@ Author: {author}
 
 YOUR TASK:
 1. Research the changes:
-   - ⚡ CRITICAL PEFORMANCE RULE: The repository is ALREADY cloned to your local filesystem at `{repo_path}`.
-   - You MUST use fast local terminal commands like `ls -la {repo_path}`, `cat`, `grep`, or file tools to read the code.
-   - Do NOT use slow `gh api` or network calls to read files or directory contents unless absolutely necessary.
+   - ⚡ PERFORMANCE RULE: The repository should be available at `{repo_path}`.
+   - Prefer fast local terminal commands like `ls -la {repo_path}`, `cat`, `grep`, or file tools.
+   - Only use slow `gh api` or network calls if the local path is missing or incomplete.
    - Check the PR diff using terminal commands if needed.
    - Search the codebase at {repo_path} to understand the impact.
 2. Formulate a detailed review.
@@ -74,17 +64,13 @@ Structure the review block as:
 """
 
     log_file = LOG_DIR / f"pr_{pr_number}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    main_log = LOG_DIR / "monitoring.jsonl"
-    
+
     def log_step(msg: str):
-        timestamp = datetime.now().strftime('%H:%M:%S')
-        with open(main_log, "a") as f:
-            f.write(f"[{timestamp}] 🧩 PR #{pr_number}    | {msg}\n")
-        logging.info(f"Steplog: {msg}")
+        central_log_step(msg, prefix=f"PR #{pr_number}")
 
     log_step(f"Cloned repo: {owner}/{repo}")
     log_step("Starting Hermes review...")
-    
+
     try:
         # Diagnostic: Check API Keys
         active_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("NOUS_API_KEY")
@@ -92,13 +78,19 @@ Structure the review block as:
         # Determine base_url and default model
         is_nous = active_key and active_key.startswith("sk-2yd")
         target_base_url = NOUS_API_BASE_URL if is_nous else OPENROUTER_BASE_URL
-        fallback_model   = "Hermes-4-405B" if is_nous else "anthropic/claude-3-5-sonnet"
-        target_model     = get_global_config("MODEL") or fallback_model
+        fallback_model   = "Hermes-3-Llama-3.1-405B" if is_nous else "anthropic/claude-3-5-sonnet"
+        
+        # Priority: Project Model > Global Model > Fallback
+        repo_full_name = f"{owner}/{repo}"
+        project_model = get_project_config(repo_full_name, "llmModel")
+        raw_model = project_model or fallback_model
+        
+        target_model = get_standardized_model(raw_model, active_key or "")
 
         # Initialize Agent
         agent = AIAgent(
-            model=get_global_config("MODEL") or target_model,
-            api_key=get_global_config("OPENROUTER_API_KEY") or "",
+            model=target_model,
+            api_key=active_key or "",
             base_url=target_base_url,
             quiet_mode=True,
             enabled_toolsets=["terminal", "file", "web"],
@@ -113,7 +105,7 @@ Structure the review block as:
         
         # Execute natively
         result = agent.run_conversation(prompt)
-        output_text = result.get("final_response", "")
+        output_text = str(result.get("final_response", "")) if result and result.get("final_response") else ""
         
         # Log to private file
         with open(log_file, "w") as f:
@@ -122,22 +114,22 @@ Structure the review block as:
     except Exception as e:
         log_step(f"Hermes FAILED: {e}")
         logging.error(f"PR agent failed: {e}")
-        send_telegram_message(f"❌ Hermes analysis failed for PR #{pr_number}: {e}", token=bot_token)
+        send_telegram_message(f"❌ Hermes analysis failed for PR #{pr_number}: {e}", repo_full_name=f"{owner}/{repo}")
         return
 
     # Log results
     log_step("Analysis complete.")
 
     # Extract analysis block using robust regex
-    analysis = ""
+    analysis: str = ""
     blocks = re.findall(r'\[ANALYSIS_START\](.*?)\[ANALYSIS_END\]', output_text, re.DOTALL)
     if blocks:
         candidates = []
         for b in blocks:
-            cleaned = b.replace('│', '').strip()
+            cleaned = str(b).replace('│', '').strip()
             if cleaned: candidates.append(cleaned)
         if candidates:
-            analysis = max(candidates, key=len)
+            analysis = str(max(candidates, key=len))
     
     # Extract verdict - use rpartition to get the latest one provided by the agent
     verdict = "comment"
@@ -148,16 +140,23 @@ Structure the review block as:
     
     if not analysis:
         # Fallback: take the last 2000 chars if tags were missed, but clean it
-        analysis = output_text.replace('│', '').strip()[-2000:]
+        analysis_text = str(output_text or "").replace('│', '').strip()
+        analysis = analysis_text[-2000:] if len(analysis_text) > 2000 else analysis_text
         logging.warning("Tags [ANALYSIS_START/END] not found for PR. Using fallback.")
     
     log_step(f"Verdict: {verdict}. Waiting for user approval...")
 
     # Request Approval
     approval_text = f"Hermes review for PR #{pr_number} is ready.\n\n*Verdict:* `{verdict.upper()}`\n\n*Review Preview:*\n{analysis[:1000]}..."
-    approved = request_approval(approval_text, f"pr_{pr_number}_{int(time.time())}", token=bot_token)
+    approved = request_approval(approval_text, f"pr_{pr_number}_{int(time.time())}", repo_full_name=f"{owner}/{repo}")
 
     if approved:
+        if not analysis.strip():
+            log_step("Approved, but review is empty. Skipping GitHub post.")
+            logging.warning("⚠️ Review is empty after approval. Skipping gh pr review.")
+            send_telegram_message(f"ℹ️ Review for PR #{pr_number} was approved but was empty. No review posted.", repo_full_name=f"{owner}/{repo}")
+            return
+
         log_step("Approved! Posting to GitHub...")
         logging.info("🚀 Approved! Posting PR review to GitHub.")
         try:
@@ -167,19 +166,19 @@ Structure the review block as:
                 capture_output=True, text=True
             )
             if process.returncode == 0:
-                send_telegram_message(f"✅ PR review posted to #{pr_number} ({verdict}).", token=bot_token)
+                send_telegram_message(f"✅ PR review posted to #{pr_number} ({verdict}).", repo_full_name=f"{owner}/{repo}")
                 log_step("Posted successfully.")
             else:
                 log_step(f"Post FAILED: {process.stderr[:100]}")
-                send_telegram_message(f"❌ Failed to post PR review: {process.stderr[:200]}", token=bot_token)
+                send_telegram_message(f"❌ Failed to post PR review: {process.stderr[:200]}", repo_full_name=f"{owner}/{repo}")
         except Exception as e:
             logging.error(f"Failed to post PR review: {e}")
-            send_telegram_message(f"❌ Failed to post PR review to #{pr_number}: {e}", token=bot_token)
+            send_telegram_message(f"❌ Failed to post PR review to #{pr_number}: {e}", repo_full_name=f"{owner}/{repo}")
             log_step(f"Post FAIL: {e}")
     else:
         log_step("Rejected by user.")
         logging.info("🛑 Rejected by user. Skipping evaluation.")
-        send_telegram_message(f"🛑 Review for PR #{pr_number} was rejected by user.", token=bot_token)
+        send_telegram_message(f"🛑 Review for PR #{pr_number} was rejected by user.", repo_full_name=f"{owner}/{repo}")
 
     logging.info(f"✅ Hermes done for PR #{pr_number}")
     log_step("Mission complete.")

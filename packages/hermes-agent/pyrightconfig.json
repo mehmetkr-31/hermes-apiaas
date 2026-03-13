@@ -1,12 +1,12 @@
 {
   "include": ["scripts"],
   "exclude": ["scripts/on_call_agent.py"],
-  "venvPath": ".",
+  "venvPath": "../..",
   "venv": ".venv",
   "extraPaths": [
     "scripts",
     "scripts/on_call",
-    ".venv/lib/python3.12/site-packages"
+    "../../.venv/lib/python3.12/site-packages"
   ],
   "typeCheckingMode": "basic",
   "reportMissingImports": true,

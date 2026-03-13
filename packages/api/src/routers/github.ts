@@ -21,6 +21,8 @@ export const githubRouter = {
 				webhookSecret: z.string().min(1),
 				telegramChatId: z.string(),
 				telegramBotToken: z.string().optional(),
+				botId: z.string().optional(),
+				llmModel: z.string().optional(),
 			}),
 		)
 		.handler(async ({ input }) => {
@@ -29,6 +31,8 @@ export const githubRouter = {
 				webhookSecret: rawSecret,
 				telegramChatId,
 				telegramBotToken: rawBotToken,
+				botId,
+				llmModel,
 			} = input;
 			const id = crypto.randomUUID();
 			const webhookSecret = encrypt(rawSecret);
@@ -42,6 +46,8 @@ export const githubRouter = {
 					webhookSecret,
 					telegramChatId,
 					telegramBotToken,
+					botId,
+					llmModel,
 					isActive: true,
 				})
 				.onConflictDoUpdate({
@@ -50,6 +56,8 @@ export const githubRouter = {
 						webhookSecret: encrypt(rawSecret),
 						telegramChatId,
 						telegramBotToken: rawBotToken ? encrypt(rawBotToken) : null,
+						botId,
+						llmModel,
 						isActive: true,
 					},
 				});

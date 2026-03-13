@@ -1,6 +1,7 @@
 import type { RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
+import { botsRouter } from "./bots";
 import { githubRouter } from "./github";
 import { metricsRouter } from "./metrics";
 import { onCallRouter } from "./on-call";
@@ -22,6 +23,7 @@ export const appRouter = {
 	github: githubRouter,
 	metrics: metricsRouter,
 	secrets: secretsRouter,
+	bots: botsRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

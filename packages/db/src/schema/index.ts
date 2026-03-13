@@ -5,3 +5,4 @@ export * from "./config";
 export * from "./approvals";
 export * from "./agent_logs";
 export * from "./secrets";
+export * from "./bots";

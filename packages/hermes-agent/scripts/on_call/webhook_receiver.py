@@ -18,7 +18,7 @@ import hashlib
 import logging
 import pathlib
 import sqlite3
-import sys
+import sys, json
 from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
@@ -26,7 +26,7 @@ from typing import Optional
 import uvicorn
 from run_agent import AIAgent
 from encryption_utils import decrypt
-from reporter import request_approval, NOUS_API_BASE_URL, OPENROUTER_BASE_URL
+from reporter import request_approval, get_project_config, DATA_DIR, DB_FILE, WORKING_DIR, LOG_FILE_PATH as MAIN_LOG_FILE, NOUS_API_BASE_URL, OPENROUTER_BASE_URL, get_standardized_model
 
 # ── Logging Setup ────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -41,27 +41,9 @@ if str(script_dir) not in sys.path:
 
 HERMES_CMD    = os.getenv("HERMES_CMD", "hermes")
 
-WORKING_DIR   = pathlib.Path(__file__).parent.parent.parent.resolve()
-DB_FILE       = WORKING_DIR.parent.parent / "local.db"
+# Common paths and config logic now imported from reporter.py
 LOG_DIR       = WORKING_DIR / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE_PATH = LOG_DIR / "monitoring.jsonl"
-DATA_DIR      = WORKING_DIR.parent.parent.resolve() / ".tmp"
-
-def get_global_config(key: str) -> str:
-    """Read a value from the global_config table in SQLite."""
-    val = os.getenv(key, "")
-    if val: return val
-    try:
-        if DB_FILE.exists():
-            with sqlite3.connect(DB_FILE) as conn:
-                cur = conn.cursor()
-                cur.execute("SELECT value FROM global_config WHERE key = ?", (key,))
-                row = cur.fetchone()
-                if row: return row[0]
-    except Exception as e:
-        logging.error(f"Failed to read {key} from DB: {e}")
-    return ""
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -227,7 +209,7 @@ def _log_github_event(event_type: str, number: int, payload: dict):
     # Simple, high-contrast log line for the dashboard
     line = f"[{timestamp}] {icon} {event_type.upper():<8} | {action:<12} | {title}\n"
     
-    with open(LOG_FILE_PATH, "a") as f:
+    with open(MAIN_LOG_FILE, "a") as f:
         f.write(line)
 
 
@@ -246,7 +228,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     event_type  = request.headers.get("X-GitHub-Event", "")
 
     try:
-        payload = __import__("json").loads(body)
+        payload = json.loads(body)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
@@ -329,8 +311,10 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
 
 @app.get("/logs")
 async def get_logs():
-    if LOG_FILE_PATH.exists():
-        with open(LOG_FILE_PATH, "r") as f:
+    if not MAIN_LOG_FILE.exists():
+        return "No logs found."
+    
+    with open(MAIN_LOG_FILE, "r") as f:
             return {"logs": f.readlines()}
     return {"logs": []}
 
@@ -351,13 +335,30 @@ async def chat_with_hermes(request: Request):
         # Determine base_url and default model
         is_nous = active_key and active_key.startswith("sk-2yd")
         target_base_url = NOUS_API_BASE_URL if is_nous else OPENROUTER_BASE_URL
-        fallback_model   = "Hermes-4-405B" if is_nous else "anthropic/claude-3-5-sonnet"
-        target_model     = get_global_config("MODEL") or fallback_model
+        fallback_model   = "Hermes-3-Llama-3.1-405B" if is_nous else "anthropic/claude-3-5-sonnet"
+        
+        # Priority: Global Model > Fallback
+        raw_model        = fallback_model
+        target_model     = get_standardized_model(raw_model, active_key or "")
+
+        # Log the request
+        msg = f"💬 Chat request (API): {message[:50]}..."
+        try:
+           with open(MAIN_LOG_FILE, mode="a") as f:
+            entry = {
+                "timestamp": datetime.now().isoformat(),
+                "level": "INFO",
+                "message": msg
+            }
+            f.write(json.dumps(entry) + "\n")
+        except Exception as log_err:
+            logging.warning(f"Failed to log chat request: {log_err}")
 
         # Fetch projects to provide context
         projects = []
         try:
             if DB_FILE.exists():
+                import sqlite3
                 with sqlite3.connect(DB_FILE) as conn:
                     cur = conn.cursor()
                     cur.execute("SELECT repo_full_name FROM hermes_project WHERE is_active = 1")
@@ -419,7 +420,7 @@ You are decisive, proactive, and strictly adhere to GitHub-native investigation 
         
         # We use run_conversation to handle memory automatically
         result = agent.run_conversation(message)
-        response = result.get("final_response", "")
+        response = result.get("final_response", "") if result else ""
         
         if not response or not str(response).strip():
             response = "Hermes did not provide a response."

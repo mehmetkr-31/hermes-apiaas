@@ -141,9 +141,14 @@ async function updateGithubWebhooks(newUrl) {
 
 // ── 1. Start webhook_receiver.py ──────────────────────────────────────────────
 const VENV_PYTHON = resolve(__dirname, "../../.venv/bin/python");
+const PROJECT_ROOT = resolve(__dirname, "../../");
+
 const receiver = spawn(VENV_PYTHON, [RECEIVER_SCRIPT], {
 	stdio: "inherit",
-	env: { ...process.env },
+	env: {
+		...process.env,
+		HERMES_PROJECT_ROOT: PROJECT_ROOT,
+	},
 });
 
 receiver.on("exit", (code) => {

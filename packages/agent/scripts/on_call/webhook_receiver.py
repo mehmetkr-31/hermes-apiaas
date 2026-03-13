@@ -20,6 +20,7 @@ import logging
 import pathlib
 import sqlite3
 import sys, json
+import traceback
 from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
@@ -54,8 +55,11 @@ logging.getLogger("telegram").setLevel(logging.WARNING)
 
 # Ensure agent scripts can be imported
 script_dir = pathlib.Path(__file__).parent.resolve()
+parent_dir = script_dir.parent.resolve()
 if str(script_dir) not in sys.path:
-    sys.path.append(str(script_dir))
+    sys.path.insert(0, str(script_dir))
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
 
 HERMES_CMD = os.getenv("HERMES_CMD", "hermes")
 
@@ -190,7 +194,7 @@ def _handle_github_issue(
             number, title=title, body=body, owner=owner, repo=repo, bot_token=bot_token
         )
     except Exception as e:
-        logging.error(f"Issue agent failed: {e}")
+        logging.error(f"Issue agent failed: {e}\n{traceback.format_exc()}")
 
 
 def _handle_github_pr(
@@ -219,7 +223,7 @@ def _handle_github_pr(
             bot_token=bot_token,
         )
     except Exception as e:
-        logging.error(f"PR agent failed: {e}")
+        logging.error(f"PR agent failed: {e}\n{traceback.format_exc()}")
 
 
 def _handle_github_action(
@@ -251,7 +255,7 @@ def _handle_github_action(
             bot_token=bot_token,
         )
     except Exception as e:
-        logging.error(f"Action agent failed: {e}")
+        logging.error(f"Action agent failed: {e}\n{traceback.format_exc()}")
 
 
 def _log_github_event(event_type: str, number: int, payload: dict):
@@ -370,7 +374,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 bot_token=bot_token,
             )
         except Exception as e:
-            logging.error(f"Push agent failed: {e}")
+            logging.error(f"Push agent failed: {e}\n{traceback.format_exc()}")
 
     elif event_type == "create":
         ref_type = payload.get("ref_type")

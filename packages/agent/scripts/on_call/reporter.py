@@ -145,11 +145,9 @@ def log_step(msg: str, prefix: str = "AGENT"):
 
 def get_project_config(repo_full_name: str, key: str) -> str:
     """Read a project-specific value (like llm_model) from hermes_project table."""
-    # HARDCODED STATIC FALLBACKS
-    if key == "llmModel":
-        active_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("NOUS_API_KEY")
-        is_nous = bool(active_key and active_key.startswith("sk-2yd"))
-        return DEFAULT_NOUS_MODEL if is_nous else DEFAULT_MODEL
+    active_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("NOUS_API_KEY")
+    is_nous = bool(active_key and active_key.startswith("sk-2yd"))
+    fallback_model = DEFAULT_NOUS_MODEL if is_nous else DEFAULT_MODEL
 
     try:
         if DB_FILE.exists():
@@ -166,7 +164,7 @@ def get_project_config(repo_full_name: str, key: str) -> str:
                     (repo_full_name,),
                 )
                 row = cur.fetchone()
-                if row:
+                if row and row[0]:
                     val = row[0]
                     if key == "webhookSecret" and val:
                         return decrypt(val)
@@ -179,7 +177,7 @@ def get_project_config(repo_full_name: str, key: str) -> str:
             f"❌ Failed to read project config {key} for {repo_full_name}: {e}"
         )
 
-    return ""
+    return fallback_model if key == "llmModel" else ""
 
 
 def get_primary_bot_token() -> str:

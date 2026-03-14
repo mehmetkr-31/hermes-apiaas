@@ -8,7 +8,7 @@
 	"type": "module",
 	"scripts": {
 		"setup": "node scripts/setup.mjs",
-		"dev": "turbo db:migrate && turbo dev server:standalone --parallel",
+		"dev": "turbo db:migrate && turbo dev --parallel",
 		"dev:web": "turbo -F web dev",
 		"dev:agent": "turbo -F @agiaas/agent server:standalone",
 		"build": "turbo build",

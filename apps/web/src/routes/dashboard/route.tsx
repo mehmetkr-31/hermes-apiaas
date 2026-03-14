@@ -1,7 +1,7 @@
+import { Logo } from "@agiaas/ui/components/logo";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { Bot, Github, LayoutDashboard, Settings2 } from "lucide-react";
-import { Logo } from "@/components/Logo";
 import { orpc } from "@/utils/orpc";
 
 export const Route = createFileRoute("/dashboard")({

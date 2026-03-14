@@ -19,7 +19,11 @@ function Home() {
 					<ASCIIText
 						text="AGIAAS"
 						asciiFontSize={8}
-						textFontSize={typeof window !== "undefined" && window.innerWidth < 768 ? 80 : 150}
+						textFontSize={
+							typeof window !== "undefined" && window.innerWidth < 768
+								? 80
+								: 150
+						}
 						textColor="#ffffff"
 						enableWaves={true}
 						planeBaseHeight={10}

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""
-GitHub Push Agent — thin Hermes wrapper.
-Hermes handles everything: analyzing changed files, maybe running tests.
-"""
-
-import os, subprocess, pathlib, logging
-from typing import Optional
+import os, subprocess, pathlib, logging, time, re
+from typing import Optional, List, Dict
 from datetime import datetime
 from dotenv import load_dotenv
-from run_agent import AIAgent
 
+# Environment Setup
+AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.parent.resolve()
+_ENV_PATH = AGENT_ROOT / ".env"
+load_dotenv(_ENV_PATH)
+
+from run_agent import AIAgent
 from reporter import (
     send_telegram_message,
     get_project_config,
@@ -25,19 +25,8 @@ from reporter import (
 )
 from prompts import PUSH_EVENT_TEMPLATE, CORE_SAFETY_RULES
 
-AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
-_ENV_PATH = AGENT_ROOT / ".env"
-load_dotenv(_ENV_PATH)
-
-# Dynamic HERMES_CMD - use env or default to 'hermes'
-HERMES_CMD = os.getenv("HERMES_CMD", "hermes")
-
-# AGENT_ROOT is automatically detected from file location
-AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
-LOG_DIR = AGENT_ROOT / "hermes_data" / "on_call_logs"
+LOG_DIR = AGENT_ROOT / "packages" / "agent" / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-logging.info(f"📁 Push Agent - Agent Root: {AGENT_ROOT}")
 
 
 def log_step(msg: str, project_slug: str):

@@ -57,7 +57,6 @@ try:
 except Exception as e:
     logging.warning(f"⚠️ Failed to load local tools: {e}")
 
-load_dotenv()
 
 # Static Configuration Defaults (User requested static models)
 DEFAULT_MODEL = "anthropic/claude-3-5-sonnet"
@@ -65,15 +64,23 @@ DEFAULT_NOUS_MODEL = "Hermes-4-405B"
 
 ## Load environment from project root
 _SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
-_PROJECT_ROOT = _SCRIPT_DIR.parent.parent.parent.resolve()
+# We are in packages/agent/scripts/on_call/ -> Root is 4 levels up
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent.parent.parent.resolve()
 _ENV_PATH = _PROJECT_ROOT / ".env"
-load_dotenv(_ENV_PATH)
+
+if _ENV_PATH.exists():
+    load_dotenv(_ENV_PATH)
+    logging.info(f"✅ Loaded .env from: {_ENV_PATH}")
+else:
+    # Fallback to current dir or environment
+    load_dotenv()
+    logging.warning(f"⚠️ .env NOT FOUND at {_ENV_PATH}. Using current environment.")
 
 logger = logging.getLogger(__name__)
 
 # Constants for default models/urls
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-NOUS_API_BASE_URL = "https://inference-api.nousresearch.com/v1"
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+NOUS_API_BASE_URL = os.getenv("NOUS_API_BASE_URL", "https://inference-api.nousresearch.com/v1")
 
 
 # Dynamic Path Configuration (Docker & Local Compatible)
@@ -143,7 +150,7 @@ def get_standardized_model(model_name: str, api_key: str = "") -> str:
         if "nous/" in standardized:
             standardized = standardized.replace("nous/", "")
 
-    logging.info(f"🎯 Standardized result: '{standardized}'")
+    logging.info(f"🎯 Standardized result: '{standardized}' (is_nous={is_nous})")
     return standardized
 
 
@@ -773,7 +780,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     .split("────────────────────")[0]
                     .strip(),
                 )
-                await query.edit_message_text(text=new_text, parse_mode="MarkdownV2")
+                await query.edit_message_text(text=new_text, parse_mode="Markdown")
 
         elif data.startswith("rejc_"):
             aid = data[len("rejc_") :]
@@ -793,7 +800,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     .split("────────────────────")[0]
                     .strip(),
                 )
-                await query.edit_message_text(text=new_text, parse_mode="MarkdownV2")
+                await query.edit_message_text(text=new_text, parse_mode="Markdown")
 
     except Exception as e:
         logging.error(f"Error in callback_handler: {e}", exc_info=True)

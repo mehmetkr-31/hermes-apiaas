@@ -770,30 +770,50 @@ function GeneralSettings() {
 														<div className="flex items-center justify-between gap-3 rounded bg-background/50 p-1.5 ring-1 ring-border/50">
 															<div className="flex shrink-0 items-center gap-1.5 opacity-70">
 																<Github className="h-3 w-3" />
-																<span className="text-[10px] font-medium">GitHub</span>
+																<span className="font-medium text-[10px]">
+																	GitHub
+																</span>
 															</div>
-															<CopyButton text={`${baseUrl}/github/webhook`} label="Copy" />
+															<CopyButton
+																text={`${baseUrl}/github/webhook`}
+																label="Copy"
+															/>
 														</div>
 														<div className="flex items-center justify-between gap-3 rounded bg-background/50 p-1.5 ring-1 ring-border/50">
 															<div className="flex shrink-0 items-center gap-1.5 opacity-70">
 																<VercelIcon className="h-3 w-3" />
-																<span className="text-[10px] font-medium">Vercel</span>
+																<span className="font-medium text-[10px]">
+																	Vercel
+																</span>
 															</div>
-															<CopyButton text={`${baseUrl}/vercel/webhook`} label="Copy" />
+															<CopyButton
+																text={`${baseUrl}/vercel/webhook`}
+																label="Copy"
+															/>
 														</div>
 														<div className="flex items-center justify-between gap-3 rounded bg-background/50 p-1.5 ring-1 ring-border/50">
 															<div className="flex shrink-0 items-center gap-1.5 opacity-70">
 																<CloudflareIcon className="h-3 w-3" />
-																<span className="text-[10px] font-medium">CF</span>
+																<span className="font-medium text-[10px]">
+																	CF
+																</span>
 															</div>
-															<CopyButton text={`${baseUrl}/cloudflare/webhook`} label="Copy" />
+															<CopyButton
+																text={`${baseUrl}/cloudflare/webhook`}
+																label="Copy"
+															/>
 														</div>
 														<div className="flex items-center justify-between gap-3 rounded bg-background/50 p-1.5 ring-1 ring-border/50">
 															<div className="flex shrink-0 items-center gap-1.5 opacity-70">
 																<SentryIcon className="h-3 w-3" />
-																<span className="text-[10px] font-medium">Sentry</span>
+																<span className="font-medium text-[10px]">
+																	Sentry
+																</span>
 															</div>
-															<CopyButton text={`${baseUrl}/sentry/webhook`} label="Copy" />
+															<CopyButton
+																text={`${baseUrl}/sentry/webhook`}
+																label="Copy"
+															/>
 														</div>
 													</div>
 												</div>

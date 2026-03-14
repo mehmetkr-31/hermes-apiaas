@@ -21,6 +21,7 @@ import pathlib
 import sqlite3
 import sys, json
 import traceback
+from dotenv import load_dotenv
 from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
@@ -53,6 +54,11 @@ from reporter import (
     LOG_FILE_PATH as MAIN_LOG_FILE,
 )
 from prompts import get_commander_system_prompt, CORE_SAFETY_RULES
+
+# ── Environment Setup ────────────────────────
+AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.parent.resolve()
+_ENV_PATH = AGENT_ROOT / ".env"
+load_dotenv(_ENV_PATH)
 
 # ── Logging Setup ────────────────────────────
 logging.basicConfig(

@@ -29,13 +29,15 @@ try {
 	for (const line of envConfig.split("\n")) {
 		const trimmedLine = line.trim();
 		if (!trimmedLine || trimmedLine.startsWith("#")) continue;
-		
+
 		const [key, ...valueParts] = trimmedLine.split("=");
 		if (key && valueParts.length > 0) {
 			process.env[key.trim()] = valueParts.join("=").trim();
 		}
 	}
-	console.log(`[webhook-server] 📝 Loaded root .env. WEBHOOK_PORT: ${process.env.WEBHOOK_PORT || "not set"}`);
+	console.log(
+		`[webhook-server] 📝 Loaded root .env. WEBHOOK_PORT: ${process.env.WEBHOOK_PORT || "not set"}`,
+	);
 } catch (err) {
 	console.warn(`[webhook-server] ⚠️ Could not load root .env: ${err.message}`);
 }

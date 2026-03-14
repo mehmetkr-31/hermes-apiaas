@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""
-GitHub PR Agent — thin Hermes wrapper.
-Hermes handles everything: reading diff, code review, posting gh pr review.
-"""
-
 import os, subprocess, pathlib, logging, time, re
 from typing import Optional
 from datetime import datetime
 from dotenv import load_dotenv
+
+# Environment Setup
+AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.parent.resolve()
+_ENV_PATH = AGENT_ROOT / ".env"
+load_dotenv(_ENV_PATH)
+
 from run_agent import AIAgent
 from reporter import (
     send_telegram_message,
@@ -24,11 +25,7 @@ from reporter import (
 )
 from prompts import PR_EVENT_TEMPLATE, CORE_SAFETY_RULES
 
-AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
-_ENV_PATH = AGENT_ROOT / ".env"
-load_dotenv(_ENV_PATH)
-AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
-LOG_DIR = AGENT_ROOT / "hermes_data" / "on_call_logs"
+LOG_DIR = AGENT_ROOT / "packages" / "agent" / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(

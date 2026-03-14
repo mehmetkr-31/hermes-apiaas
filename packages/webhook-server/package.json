@@ -4,5 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "node start.mjs"
+	},
+	"dependencies": {
+		"dotenv": "catalog:"
 	}
 }

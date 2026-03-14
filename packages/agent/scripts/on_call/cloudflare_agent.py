@@ -11,6 +11,7 @@ from run_agent import AIAgent
 from reporter import (
     send_telegram_message,
     get_project_config,
+    request_approval,
     ensure_repo_cloned,
     get_standardized_model,
     log_step as central_log_step,
@@ -162,6 +163,51 @@ YOUR TASK:
 
     send_telegram_message(report, repo_full_name=repo_full_name, level="success")
     logging.info(f"✅ Hermes done for Cloudflare {project_name}")
+
+    # Proactive Step: Ask to open GitHub Issue
+    log_step("Waiting for user approval to open GitHub issue...")
+    approval_msg = f"🔬 <b>Cloudflare Failure Diagnosis Ready</b>\n\nShould I open a GitHub issue in <code>{repo_full_name}</code> with this diagnosis?"
+    
+    import time
+    approved = request_approval(
+        approval_msg,
+        f"cf_issue_{project_name}_{int(time.time())}",
+        repo_full_name=repo_full_name
+    )
+
+    if approved:
+        log_step("Approved! Creating GitHub issue...")
+        try:
+            import subprocess
+            issue_title = f"Cloudflare: Build {status.upper()} in {project_name}"
+            issue_body = f"## Cloudflare Build Diagnosis\n\n{diagnosis}\n\nProject: {project_name}\nEnv: {environment}\n\n---\n*Created automatically by Hermes*"
+            
+            cmd = [
+                "gh", "issue", "create",
+                "--title", issue_title,
+                "--body", issue_body,
+                "--repo", repo_full_name
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            new_issue_url = result.stdout.strip()
+            
+            send_telegram_message(
+                f"✅ <b>GitHub Issue Created</b>\n{new_issue_url}",
+                repo_full_name=repo_full_name,
+                level="success"
+            )
+            log_step("GitHub issue created successfully.")
+        except Exception as e:
+            logging.error(f"Failed to create GitHub issue: {e}")
+            send_telegram_message(
+                f"❌ Failed to create GitHub issue: {e}",
+                repo_full_name=repo_full_name,
+                level="error"
+            )
+            log_step(f"Issue creation FAILED: {e}")
+    else:
+        log_step("Issue creation skipped by user.")
+
     log_step("Mission complete.")
 
 

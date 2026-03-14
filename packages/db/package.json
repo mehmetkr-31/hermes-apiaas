@@ -11,10 +11,10 @@
 	},
 	"scripts": {
 		"db:local": "turso dev --db-file local.db",
-		"db:push": "drizzle-kit push",
-		"db:generate": "drizzle-kit generate",
-		"db:studio": "drizzle-kit studio",
-		"db:migrate": "drizzle-kit migrate",
+		"db:push": "pnpm dlx dotenv-cli -e ../../.env -- drizzle-kit push",
+		"db:generate": "pnpm dlx dotenv-cli -e ../../.env -- drizzle-kit generate",
+		"db:studio": "pnpm dlx dotenv-cli -e ../../.env -- drizzle-kit studio",
+		"db:migrate": "pnpm dlx dotenv-cli -e ../../.env -- drizzle-kit migrate",
 		"check-types": "tsc --noEmit"
 	},
 	"dependencies": {

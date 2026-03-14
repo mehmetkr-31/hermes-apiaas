@@ -15,32 +15,20 @@
 
 import { execSync, spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import "dotenv/config";
+import dotenv from "dotenv";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Load .env from project root
-try {
-	const rootEnvPath = resolve(__dirname, "../../.env");
-	const envConfig = readFileSync(rootEnvPath, "utf-8");
-	for (const line of envConfig.split("\n")) {
-		const trimmedLine = line.trim();
-		if (!trimmedLine || trimmedLine.startsWith("#")) continue;
+const rootEnvPath = resolve(__dirname, "../../.env");
+dotenv.config({ path: rootEnvPath });
 
-		const [key, ...valueParts] = trimmedLine.split("=");
-		if (key && valueParts.length > 0) {
-			process.env[key.trim()] = valueParts.join("=").trim();
-		}
-	}
-	console.log(
-		`[webhook-server] 📝 Loaded root .env. WEBHOOK_PORT: ${process.env.WEBHOOK_PORT || "not set"}`,
-	);
-} catch (err) {
-	console.warn(`[webhook-server] ⚠️ Could not load root .env: ${err.message}`);
-}
+console.log(
+	`[webhook-server] 📝 Loaded root .env. WEBHOOK_PORT: ${process.env.WEBHOOK_PORT || "not set"}`,
+);
 
 function decrypt(hash) {
 	const secret = process.env.DB_ENCRYPTION_KEY;

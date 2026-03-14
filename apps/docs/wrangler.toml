@@ -1,8 +1,32 @@
+"$schema" = "node_modules/wrangler/config-schema.json"
 name = "agiaas-docs"
-# Set this to today's date
 compatibility_date = "2026-03-14"
 compatibility_flags = [ "nodejs_compat" ]
 main = "@tanstack/react-start/server-entry"
 
 [observability]
+[observability.logs]
 enabled = true
+invocation_logs = true
+
+[env.production]
+name = "agiaas-docs"
+workers_dev = false
+
+[[env.production.routes]]
+pattern = "docs.agiaas.ink"
+custom_domain = true
+
+[env.production.vars]
+NODE_ENV = "production"
+
+[env.staging]
+name = "agiaas-docs-staging"
+workers_dev = false
+
+[[env.staging.routes]]
+pattern = "staging-docs.agiaas.ink"
+custom_domain = true
+
+[env.staging.vars]
+NODE_ENV = "production"

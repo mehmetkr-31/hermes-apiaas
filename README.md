@@ -158,3 +158,10 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 <p align="center">
   Built with ❤️ by the AGIAAS Team
 </p>
+
+---
+
+### 🪟 Windows Users
+- **Inside Docker**: The `apt-get` commands in our Dockerfiles run inside a Linux container, so they are fully compatible with Windows via Docker Desktop.
+- **Line Endings**: If you encounter errors like `\r: command not found`, ensure your IDE is saving files with **LF** line endings instead of CRLF.
+- **Paths**: The `pnpm setup` command will automatically detect your Windows paths for GitHub credentials and set them in your `.env`.

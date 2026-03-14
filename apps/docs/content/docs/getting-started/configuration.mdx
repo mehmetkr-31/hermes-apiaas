@@ -9,15 +9,24 @@ AGIAAS requires several environment variables to function correctly. These are m
 
 ## Required Variables
 
+### Security & Encryption
+
+These keys are generated automatically by running `pnpm setup`.
+
+| Variable | Description |
+| :--- | :--- |
+| `DB_ENCRYPTION_KEY` | 32-character key used to encrypt repository tokens in the database (AES-256-GCM). |
+| `BETTER_AUTH_SECRET` | Secret key used for session management and dashboard security. |
+
 ### AI Provider Tools
 
-AGIAAS leverages **OpenRouter** or **Nous** for LLM inference.
+AGIAAS leverages **OpenRouter** or **Nous Research** for LLM inference.
 
-| Variable | Description | Example |
-| :--- | :--- | :--- |
-| `OPENROUTER_API_KEY` | Your OpenRouter API key. | `sk-or-v1-...` |
-| `AI_PROVIDER` | The model provider to use. | `openrouter` or `nous` |
-| `AI_MODEL` | The specific model identifier. | `anthropic/claude-3.5-sonnet` |
+| Variable | Description |
+| :--- | :--- |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key (optional if using Nous). |
+| `NOUS_API_KEY` | Your Nous Research API key (starts with `sk-2yd`). |
+| `HERMES_AGENT_URL` | The URL where the Python Agent is reachable (default: `http://localhost:8678`). |
 
 ### GitHub Integration
 

@@ -92,8 +92,7 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
    git clone https://github.com/mehmetkr-31/agiaas.git
    cd agiaas
    pnpm install
-   pnpm setup  # 👈 This will create your .env interactively
-   pnpm db:migrate
+   pnpm setup  # 👈 This will generate security keys and .env interactively
    ```
 
 2. **Run the Platform**
@@ -101,7 +100,7 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
    docker-compose up --build
    ```
 
-> Access the **Dashboard** at `http://localhost:3678` and the **AI Agent** at `http://localhost:8678`.
+> Access the **Dashboard** at `http://localhost:3678` and the **AI Agent API** at `http://localhost:8678`.
 
 ---
 
@@ -112,12 +111,13 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
    git clone https://github.com/mehmetkr-31/agiaas.git
    cd agiaas
    pnpm install
-   pnpm setup  # 👈 Creates your .env interactively
+   pnpm setup  # 👈 Interactively configures your environment
+   pnpm db:migrate
    ```
 
 2. **Initialize Agent**
    ```bash
-   pnpm python:install # 👈 Installs and patches the AI Agent library
+   pnpm python:install # 👈 Sets up the Python virtual environment and patches dependencies
    ```
 
 3. **Run Everything**
@@ -125,7 +125,7 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
    pnpm dev
    ```
 
-> Access the **Dashboard** at `http://localhost:3678` and the **AI Agent** at `http://localhost:8678`.
+> Access the **Dashboard** at `http://localhost:3678` and the **AI Agent API** at `http://localhost:8678`.
 
 ---
 

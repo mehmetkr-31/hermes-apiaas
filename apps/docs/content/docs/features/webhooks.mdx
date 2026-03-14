@@ -1,34 +1,68 @@
 ---
-title: Webhook Automation
-description: Zero-config monitoring using Cloudflare Tunnels.
+title: Webhook Integration Guide
+description: Connect external services like GitHub, Sentry, Vercel, and Cloudflare to Hermes.
 ---
 
-# Automated Webhook Management
+# Webhook Integrations
 
-Setting up webhooks for multiple repositories can be tedious. AGIAAS automates this entire process using the `@agiaas/webhook-server`.
+Hermes can process events from multiple providers to diagnose and fix issues automatically.
 
-## The "Zero-Config" Approach
+## 1. GitHub Integration
 
-When you start the webhook server, it performs the following steps:
+The primary source of events. Hermes tracks issues, PRs, and workflow failures.
 
-1. **Tunnel Creation**: Opens a secure **Cloudflare Tunnel** to your local machine.
-2. **Endpoint Exposure**: Generates a public URL (e.g., `https://random-id.trycloudflare.com`).
-3. **Repository Discovery**: Lists all repositories accessible via your `GITHUB_TOKEN`.
-4. **Auto-Registration**: Adds or updates the webhook endpoint on those repositories for events like:
-   - `Issues`
-   - `Pull Requests`
-   - `Workflow Runs`
-
-## Event Ingestion
-
-The server acts as a high-performance bridge. It:
-- Validates the GitHub signature to ensure requests are authentic.
-- Decouples the ingestion from the agent execution, ensuring webhooks are acknowledged within GitHub's timeout limits (10s).
-- Triggers the `@agiaas/agent` with the serialized payload.
-
-## Manual Overrides
-
-If you prefer manual control, you can disable auto-registration in the configuration and manually set the webhook URL in GitHub's repository settings.
+- **Payload URL**: `[YOUR_TUNNEL_URL]/github/webhook`
+- **Content Type**: `application/json`
+- **Events**:
+    - `Issues` (opened)
+    - `Pull requests` (opened, synchronize)
+    - `Workflow runs` (completed - detects failures)
+    - `Pushes` (tracks changes for context)
 
 > [!TIP]
-> You can monitor active tunnels and incoming webhook payloads in real-time on the AGIAAS Dashboard.
+> If you are using the Webhook Server, it will attempt to synchronize these settings automatically for your active projects.
+
+---
+
+## 2. Sentry Integration
+
+Get automatic root-cause analysis for production errors.
+
+- **Webhook URL**: `[YOUR_TUNNEL_URL]/sentry/webhook/[owner]/[repo]`
+- **Setup**:
+    1. Go to Sentry -> **Settings** -> **Integrations**.
+    2. Search for **Webhooks** and add your unique URL.
+    3. Create an **Alert Rule** in your project that triggers the webhook when a "New Issue" is created.
+
+---
+
+## 3. Vercel Integration
+
+Detect deployment failures and large-scale regressions.
+
+- **Webhook URL**: `[YOUR_TUNNEL_URL]/vercel/webhook/[owner]/[repo]`
+- **Setup**:
+    1. Go to Vercel Dashboard -> **Integrations**.
+    2. Add a Custom Webhook.
+    3. Select `Deployment Status` as the trigger event.
+
+---
+
+## 4. Cloudflare Integration
+
+Monitor Pages deployments and Worker health.
+
+- **Webhook URL**: `[YOUR_TUNNEL_URL]/cloudflare/webhook/[owner]/[repo]`
+- **Setup**:
+    1. Go to Cloudflare Dashboard -> **Pages**.
+    2. Under **Settings** -> **Deployments**, add a Webhook.
+    3. Hermes will analyze deployment failures specifically.
+
+---
+
+## Technical Details
+
+All incoming webhooks are:
+1. **Validated**: Signatures are checked (if available) against the secret in the database.
+2. **Logged**: You can view raw payloads in the `packages/agent/hermes_data/on_call_logs` directory.
+3. **Dispatched**: The intelligent agent is triggered in the background to avoid timeout issues with the providers.

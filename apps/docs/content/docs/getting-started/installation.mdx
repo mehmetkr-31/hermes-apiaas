@@ -33,42 +33,51 @@ AGIAAS uses `pnpm` for managing the monorepo.
 pnpm install
 ```
 
-## Step 3: Initialize the Database
+## Step 3: Environment Configuration
 
-Push the schema to your local SQLite database:
-
-```bash
-pnpm db:push
-```
-
-## Step 4: Environment Configuration
-
-Copy the example environment file:
+Instead of manually copying files, use the interactive setup tool:
 
 ```bash
-cp .env.example .env
+pnpm setup
 ```
 
-Now, edit `.env` and fill in the required tokens. See the [Configuration](/docs/getting-started/configuration) guide for details.
+This script will:
+- Generate a 32-character `DB_ENCRYPTION_KEY` for securing your credentials.
+- Generate a `BETTER_AUTH_SECRET` for dashboard security.
+- Prompt for your AI Provider keys (Nous Research or OpenRouter).
+- Configure your local GitHub CLI paths.
 
-## Step 5: Start Development Servers
+## Step 4: Run with Docker (Recommended)
 
-You can start the main dashboard and API using:
+The easiest way to run the entire stack (Dashboard + API + Agent) is using Docker:
 
 ```bash
-pnpm dev
+docker-compose up --build
 ```
 
-The Web Dashboard will be available at [http://localhost:5173](http://localhost:5173).
+The Web Dashboard will be available at [http://localhost:3678](http://localhost:3678).
 
-## Step 6: Start Webhook Server
+## Step 5: Local Development (Manual)
 
-In a separate terminal, start the webhook bridge:
+If you prefer to run services individually without Docker:
 
-```bash
-cd packages/webhook-server
-pnpm dev
-```
+1. **Migrate the Database**:
+   ```bash
+   pnpm db:migrate
+   ```
+
+2. **Install Python Agent Dependencies**:
+   ```bash
+   pnpm python:install
+   ```
+
+3. **Start the Services**:
+   ```bash
+   pnpm dev
+   ```
+
+> [!IMPORTANT]
+> The default port for the dashboard in local development is **3678**.
 
 > [!NOTE]
 > The webhook server will automatically open a Cloudflare tunnel and update your GitHub repository webhook settings.

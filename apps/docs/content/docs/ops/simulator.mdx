@@ -1,0 +1,34 @@
+---
+title: Webhook Simulator
+description: Test Hermes' logic without waiting for real incidents.
+---
+
+# Testing with the Simulator
+
+We have provided a specialized tool to test Hermes' diagnostic capabilities using real-world scenarios for the `aLjTap/webTech` portfolio project.
+
+## How to use the Simulator
+
+1. **Locate the file**:
+   Open `packages/agent/scripts/on_call/webhook_test_dashboard.html` in your browser.
+
+2. **Configure Base URL**:
+   Ensure the "Base Webhook URL" points to your running Hermes Agent (default: `http://localhost:8678`).
+
+3. **Select a Scenario**:
+   - **Sentry (404 Error)**: Simulates a broken CV link in `experience.html`.
+   - **Vercel (Case Sensitivity)**: Simulates a build error where `styles.css` is referenced as `Styles.css`.
+   - **GitHub (Typo)**: Opens an issue for a "Send Massage" typo in `contact.html`.
+   - **Cloudflare (Security)**: Simulates a "Mixed Content" warning for insecure jQuery loading.
+
+## What to Expect
+
+When you click a trigger button:
+1. The simulator sends a payload to Hermes.
+2. Hermes clones the `aLjTap/webTech` repository locally.
+3. The agent analyzes the code files mentioned in the "culprit" field.
+4. Hermes provides a diagnosis and suggests a fix via Telegram (or directly in the GitHub Issue).
+
+## Why Test This Way?
+
+The simulator ensures that your AI model, environment variables, and repository access are all configured correctly before a real production incident occurs.

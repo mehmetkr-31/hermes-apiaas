@@ -38,7 +38,11 @@ from telegram.ext import (
 )
 from run_agent import AIAgent
 from encryption_utils import decrypt
-from ui_utils import format_telegram_card, calculate_cost
+from ui_utils import (
+    calculate_cost,
+    format_telegram_card,
+    escape_html,
+)
 from agent.model_metadata import fetch_model_metadata
 from prompts import get_commander_system_prompt, CORE_SAFETY_RULES
 
@@ -407,7 +411,7 @@ async def _request_approval_async(
         msg = await bot.send_message(
             chat_id=chat_id,
             text=formatted_text,
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=reply_markup,
         )
         set_approval_status(
@@ -434,7 +438,8 @@ async def _request_approval_async(
         await bot.edit_message_text(
             chat_id=chat_id,
             message_id=msg.message_id,
-            text=f"⏰ *TIMEOUT*\n\n{text}\n\n_Auto-rejected after {timeout}s by system._",
+            text=escape_html(f"⏰ TIMEOUT\n\n{text}\n\nAuto-rejected after {timeout}s by system."),
+            parse_mode="HTML",
         )
         set_approval_status(approval_id, "rejected")
         return False
@@ -480,7 +485,7 @@ def send_telegram_message(text: str, repo_full_name: str, level: str = "info") -
             level=level,
         )
         await bot.send_message(
-            chat_id=chat_id, text=formatted_text, parse_mode="MarkdownV2"
+            chat_id=chat_id, text=formatted_text, parse_mode="HTML"
         )
 
     try:
@@ -498,13 +503,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
     await update.message.reply_text(
-        "🤖 *Hermes Interactive Bot*\n\n"
-        "/new — Clear conversation history\n"
-        "/status — System health & pending actions\n"
-        "/logs [n] — Last N log lines (default 30)\n"
-        "/help — This message\n\n"
-        "I will also send you approval requests with buttons for sensitive actions.",
-        parse_mode="Markdown",
+        escape_html(
+            "🤖 Hermes Interactive Bot\n\n"
+            "/new — Clear conversation history\n"
+            "/status — System health & pending actions\n"
+            "/logs [n] — Last N log lines (default 30)\n"
+            "/help — This message\n\n"
+            "I will also send you approval requests with buttons for sensitive actions."
+        ),
+        parse_mode="HTML",
     )
 
 
@@ -514,16 +521,16 @@ async def new_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
     if sessions.clear_history(chat_id):
         await update.message.reply_text(
-            "🧼 *Memory cleared.* Starting fresh!", parse_mode="Markdown"
+            f"🧼 <b>Memory cleared.</b> Starting fresh!", parse_mode="HTML"
         )
     else:
-        await update.message.reply_text("Memory was already empty.")
+        await update.message.reply_text("Memory was already empty.", parse_mode="HTML")
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
-    msg = "🏢 *Hermes Status*\n✅ All systems operational.\n"
+    msg = "🏢 Hermes Status\n✅ All systems operational.\n"
     # Show last 3 approvals
     try:
         if DB_FILE.exists():
@@ -532,7 +539,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 cur.execute("SELECT id, status FROM approvals ORDER BY id DESC LIMIT 3")
                 rows = cur.fetchall()
                 if rows:
-                    msg += "\n*Recent Approvals:*\n"
+                    msg += "\nRecent Approvals:\n"
                     for r in rows:
                         status_emoji = (
                             "✅"
@@ -543,10 +550,10 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         )
                         aid = str(r[0])
                         short_aid = aid[-8:]
-                        msg += f"{status_emoji} `{short_aid}`: {r[1]}\n"
+                        msg += f"{status_emoji} <code>{short_aid}</code>: {r[1]}\n"
     except Exception:
         pass
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    await update.message.reply_text(escape_html(msg), parse_mode="HTML")
 
 
 async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -557,15 +564,14 @@ async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         n = int(context.args[0])
 
     if not LOG_FILE_PATH.exists():
-        await update.message.reply_text("📭 No monitoring logs found.")
+        await update.message.reply_text("📭 No monitoring logs found.", parse_mode="HTML")
         return
 
     with open(LOG_FILE_PATH, "r") as f:
         lines = f.readlines()
     snippet = "".join(lines[-n:])[-3500:]
-    await update.message.reply_text(
-        f"📄 *Last {n} log lines:*\n```\n{snippet}\n```", parse_mode="Markdown"
-    )
+    msg = f"📄 <b>Last {n} log lines:</b>\n<pre>{escape_html(snippet)}</pre>"
+    await update.message.reply_text(msg, parse_mode="HTML")
 
 
 async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -740,7 +746,7 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             level="agent",
         )
 
-        await update.message.reply_text(formatted_msg, parse_mode="MarkdownV2")
+        await update.message.reply_text(formatted_msg, parse_mode="HTML")
 
     except Exception as e:
         logging.error(f"Chat error: {e}")
@@ -780,7 +786,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     .split("────────────────────")[0]
                     .strip(),
                 )
-                await query.edit_message_text(text=new_text, parse_mode="Markdown")
+                await query.edit_message_text(text=new_text, parse_mode="HTML")
 
         elif data.startswith("rejc_"):
             aid = data[len("rejc_") :]
@@ -800,7 +806,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     .split("────────────────────")[0]
                     .strip(),
                 )
-                await query.edit_message_text(text=new_text, parse_mode="Markdown")
+                await query.edit_message_text(text=new_text, parse_mode="HTML")
 
     except Exception as e:
         logging.error(f"Error in callback_handler: {e}", exc_info=True)

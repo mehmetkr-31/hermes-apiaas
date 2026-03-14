@@ -23,7 +23,7 @@ from reporter import (
     DEFAULT_MODEL,
     DEFAULT_NOUS_MODEL,
 )
-from prompts import ISSUE_EVENT_TEMPLATE, CORE_SAFETY_RULES
+from prompts import ISSUE_EVENT_TEMPLATE, CORE_SAFETY_RULES, COMMANDER_PERSONA
 
 LOG_DIR = AGENT_ROOT / "packages" / "agent" / "hermes_data" / "on_call_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -59,7 +59,7 @@ def handle_issue(
         ISSUE_EVENT_TEMPLATE.format(
             issue_number=issue_number, repo=f"{owner}/{repo}", title=title
         )
-        + f"\n\nDescription:\n{body_snippet}\n\nLocal Path: {repo_path}"
+        + f"\n\nDescription:\n{body_snippet}"
     )
 
     log_file = (
@@ -97,7 +97,11 @@ def handle_issue(
             enabled_toolsets=["terminal", "file", "web", "vision"],
             reasoning_config={"enabled": True, "effort": "high"},
             ephemeral_system_prompt=(
-                f"You are an autonomous GitHub Issue agent.\n{CORE_SAFETY_RULES}"
+                f"{COMMANDER_PERSONA}\n"
+                f"{CORE_SAFETY_RULES}\n"
+                f"You are currently analyzing a GitHub Issue. Your goal is to provide a clean, professional diagnosis.\n"
+                "**STRICT RULE**: NEVER include local file paths (like /Users/... or .tmp/...) in your [ANALYSIS_START] block.\n"
+                "**STRICT RULE**: NEVER include raw tool call tags like <tool_call> in your [ANALYSIS_START] block."
             ),
         )
 
@@ -148,6 +152,19 @@ def handle_issue(
         analysis_text = str(output_text or "").replace("│", "").strip()
         analysis = analysis_text[-2000:] if len(analysis_text) > 2000 else analysis_text
         logging.warning("Tags [ANALYSIS_START/END] not found or empty. Using fallback.")
+
+    # --- Scrubbing Logic ---
+    # 1. Remove internal tool call tags
+    analysis = re.sub(r"<tool_call>.*?</tool_call>", "", analysis, flags=re.DOTALL)
+    analysis = analysis.replace("<tool_call>", "").replace("</tool_call>", "")
+
+    # 2. Remove internal system paths (looking for common patterns)
+    # This matches common Unix paths and Windows paths that look like system dirs
+    path_pattern = r"(/Users/[a-zA-Z0-9._-]+/|/app/|/tmp/|\.\/\.tmp/)[a-zA-Z0-9._/-]+"
+    analysis = re.sub(path_pattern, "[internal-path]", analysis)
+
+    # 3. Clean up any leftover artifacts
+    analysis = analysis.strip()
 
     log_step("Waiting for user approval...")
 

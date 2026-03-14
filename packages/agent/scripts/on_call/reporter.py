@@ -84,7 +84,9 @@ logger = logging.getLogger(__name__)
 
 # Constants for default models/urls
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-NOUS_API_BASE_URL = os.getenv("NOUS_API_BASE_URL", "https://inference-api.nousresearch.com/v1")
+NOUS_API_BASE_URL = os.getenv(
+    "NOUS_API_BASE_URL", "https://inference-api.nousresearch.com/v1"
+)
 
 
 # Dynamic Path Configuration (Docker & Local Compatible)
@@ -136,11 +138,11 @@ def get_standardized_model(model_name: str, api_key: str = "") -> str:
         "HERMES-3-LLAMA-3.1-405B": "Hermes-4-405B",  # Upgrade deprecated model
         "CLAUDE-3-5-SONNET": "anthropic/claude-3-5-sonnet",
     }
-    
+
     standardized = mapping.get(model_name.upper(), model_name)
 
     is_nous = bool(api_key and api_key.startswith("sk-2yd"))
-    
+
     # 2. Add provider prefix for OpenRouter, but NOT for direct Nous API
     # Direct Nous API expects exactly the model name like 'Hermes-3-Llama-3.1-405B'
     if "/" not in standardized:
@@ -288,17 +290,31 @@ def ensure_repo_cloned(owner: Optional[str], repo: Optional[str]) -> pathlib.Pat
             # Get current branch
             branch_res = subprocess.run(
                 ["git", "-C", str(repo_dir), "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True, text=True, check=True
+                capture_output=True,
+                text=True,
+                check=True,
             )
             current_branch = branch_res.stdout.strip()
-            
+
             # Fetch specifically from origin
             subprocess.run(["git", "-C", str(repo_dir), "fetch", "origin"], check=True)
-            
+
             # Reset to origin/branch to avoid merge conflicts and tracking issues for an agent
-            subprocess.run(["git", "-C", str(repo_dir), "reset", "--hard", f"origin/{current_branch}"], check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo_dir),
+                    "reset",
+                    "--hard",
+                    f"origin/{current_branch}",
+                ],
+                check=True,
+            )
         except Exception as e:
-            logging.warning(f"⚠️ Robust update failed for {owner}/{repo}: {e}. Falling back to standard pull.")
+            logging.warning(
+                f"⚠️ Robust update failed for {owner}/{repo}: {e}. Falling back to standard pull."
+            )
             subprocess.run(["git", "-C", str(repo_dir), "pull"], check=True)
     return repo_dir
 
@@ -438,7 +454,9 @@ async def _request_approval_async(
         await bot.edit_message_text(
             chat_id=chat_id,
             message_id=msg.message_id,
-            text=escape_html(f"⏰ TIMEOUT\n\n{text}\n\nAuto-rejected after {timeout}s by system."),
+            text=escape_html(
+                f"⏰ TIMEOUT\n\n{text}\n\nAuto-rejected after {timeout}s by system."
+            ),
             parse_mode="HTML",
         )
         set_approval_status(approval_id, "rejected")
@@ -484,9 +502,7 @@ def send_telegram_message(text: str, repo_full_name: str, level: str = "info") -
             repo_name=repo_full_name,
             level=level,
         )
-        await bot.send_message(
-            chat_id=chat_id, text=formatted_text, parse_mode="HTML"
-        )
+        await bot.send_message(chat_id=chat_id, text=formatted_text, parse_mode="HTML")
 
     try:
         asyncio.run(_send())
@@ -564,7 +580,9 @@ async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         n = int(context.args[0])
 
     if not LOG_FILE_PATH.exists():
-        await update.message.reply_text("📭 No monitoring logs found.", parse_mode="HTML")
+        await update.message.reply_text(
+            "📭 No monitoring logs found.", parse_mode="HTML"
+        )
         return
 
     with open(LOG_FILE_PATH, "r") as f:
@@ -668,7 +686,7 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         project_context = ""
         if projects:
             project_context = (
-                f"\n\nRegistered repositories you can manage (located in {DATA_DIR}):\n- "
+                "\n\nRegistered repositories you can manage:\n- "
                 + "\n- ".join(projects)
             )
 

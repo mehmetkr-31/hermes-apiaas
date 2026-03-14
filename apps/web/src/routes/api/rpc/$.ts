@@ -53,6 +53,7 @@ export const Route = createFileRoute("/api/rpc/$")({
 			PUT: handle,
 			PATCH: handle,
 			DELETE: handle,
+			OPTIONS: handle,
 		},
 	},
 });

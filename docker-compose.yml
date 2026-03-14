@@ -14,6 +14,7 @@ services:
       - ./local.db:/app/local.db
       - ./.tmp:/app/.tmp
       - ./logs:/app/logs
+      - ~/.config/gh:/root/.config/gh
     ports:
       - "8678:8678"
     restart: unless-stopped
@@ -32,6 +33,7 @@ services:
       - HERMES_AGENT_URL=http://hermes-agent:8678
     volumes:
       - ./local.db:/app/local.db
+      - ~/.config/gh:/root/.config/gh
     ports:
       - "3678:3678"
     restart: unless-stopped

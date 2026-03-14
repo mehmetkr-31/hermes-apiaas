@@ -19,10 +19,14 @@ from reporter import (
     log_step as central_log_step,
     NOUS_API_BASE_URL,
     OPENROUTER_BASE_URL,
+    DEFAULT_MODEL,
+    DEFAULT_NOUS_MODEL,
 )
 from prompts import CORE_SAFETY_RULES
 
-load_dotenv()
+AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
+_ENV_PATH = AGENT_ROOT / ".env"
+load_dotenv(_ENV_PATH)
 AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
 DATA_DIR = AGENT_ROOT.parent.parent.resolve() / ".tmp"
 LOG_DIR = AGENT_ROOT / "hermes_data" / "on_call_logs"
@@ -90,9 +94,7 @@ YOUR TASK:
         # Determine base_url and default model
         is_nous = active_key and active_key.startswith("sk-2yd")
         target_base_url = NOUS_API_BASE_URL if is_nous else OPENROUTER_BASE_URL
-        fallback_model = (
-            "Hermes-3-Llama-3.1-405B" if is_nous else "anthropic/claude-3-5-sonnet"
-        )
+        fallback_model = DEFAULT_NOUS_MODEL if is_nous else DEFAULT_MODEL
 
         # Priority: Project Model > Global Model > Fallback
         repo_full_name = f"{owner}/{repo}"

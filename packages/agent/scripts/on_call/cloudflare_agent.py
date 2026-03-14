@@ -6,6 +6,7 @@ Cloudflare Agent — Receives Cloudflare Pages/Workers deployment webhooks and r
 import os, pathlib, logging, re
 from typing import Optional
 from datetime import datetime
+from dotenv import load_dotenv
 from run_agent import AIAgent
 from reporter import (
     send_telegram_message,
@@ -13,8 +14,17 @@ from reporter import (
     ensure_repo_cloned,
     get_standardized_model,
     log_step as central_log_step,
+)
+
+AGENT_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
+_ENV_PATH = AGENT_ROOT / ".env"
+load_dotenv(_ENV_PATH)
+
+from reporter import (
     NOUS_API_BASE_URL,
     OPENROUTER_BASE_URL,
+    DEFAULT_MODEL,
+    DEFAULT_NOUS_MODEL,
 )
 from prompts import CORE_SAFETY_RULES
 
@@ -99,9 +109,7 @@ YOUR TASK:
         active_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("NOUS_API_KEY")
         is_nous = active_key and active_key.startswith("sk-2yd")
         target_base_url = NOUS_API_BASE_URL if is_nous else OPENROUTER_BASE_URL
-        fallback_model = (
-            "Hermes-3-Llama-3.1-405B" if is_nous else "anthropic/claude-3-5-sonnet"
-        )
+        fallback_model = DEFAULT_NOUS_MODEL if is_nous else DEFAULT_MODEL
 
         project_model = get_project_config(repo_full_name, "llmModel")
         target_model = get_standardized_model(

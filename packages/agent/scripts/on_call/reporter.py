@@ -61,9 +61,15 @@ load_dotenv()
 
 # Static Configuration Defaults (User requested static models)
 DEFAULT_MODEL = "anthropic/claude-3-5-sonnet"
-DEFAULT_NOUS_MODEL = (
-    "Hermes-4-405B"  # This is the primary model available on Nous direct API
-)
+DEFAULT_NOUS_MODEL = "Hermes-4-405B"
+
+## Load environment from project root
+_SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent.parent.resolve()
+_ENV_PATH = _PROJECT_ROOT / ".env"
+load_dotenv(_ENV_PATH)
+
+logger = logging.getLogger(__name__)
 
 # Constants for default models/urls
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -112,18 +118,30 @@ def get_standardized_model(model_name: str, api_key: str = "") -> str:
         logging.warning("⚠️ Empty model name! Using default fallback.")
         return "anthropic/claude-3-5-sonnet"
 
-    # 1. Map human names to API internal names
+    # 1. Map human names to API internal names (case-insensitive)
     mapping = {
-        "Hermes-4-405B": "Hermes-4-405B",
-        "Hermes-3-Llama-3.1-405B": "Hermes-3-Llama-3.1-405B",
+        "HERMES-4-405B": "Hermes-4-405B",
+        "HERMES-4-70B": "Hermes-4-70B",
+        "HERMES-3-LLAMA-3.1-405B": "Hermes-4-405B",  # Upgrade deprecated model
+        "CLAUDE-3-5-SONNET": "anthropic/claude-3-5-sonnet",
     }
+    
+    standardized = mapping.get(model_name.upper(), model_name)
 
-    standardized = mapping.get(model_name, model_name)
-
-    # 2. Strip NousResearch/ prefix if using direct Nous API
     is_nous = bool(api_key and api_key.startswith("sk-2yd"))
-    if is_nous and standardized.startswith("NousResearch/"):
-        standardized = standardized.replace("NousResearch/", "")
+    
+    # 2. Add provider prefix for OpenRouter, but NOT for direct Nous API
+    # Direct Nous API expects exactly the model name like 'Hermes-3-Llama-3.1-405B'
+    if "/" not in standardized:
+        if not is_nous:
+            standardized = f"openrouter/{standardized}"
+
+    # 3. Strip redundant NousResearch/ if using direct Nous API
+    if is_nous:
+        if "NousResearch/" in standardized:
+            standardized = standardized.replace("NousResearch/", "")
+        if "nous/" in standardized:
+            standardized = standardized.replace("nous/", "")
 
     logging.info(f"🎯 Standardized result: '{standardized}'")
     return standardized
@@ -254,7 +272,23 @@ def ensure_repo_cloned(owner: Optional[str], repo: Optional[str]) -> pathlib.Pat
         )
     else:
         logging.info(f"🔄 Updating {owner}/{repo} in {repo_dir}")
-        subprocess.run(["git", "-C", str(repo_dir), "pull"], check=True)
+        # Robust update: fetch and then pull/reset on current branch
+        try:
+            # Get current branch
+            branch_res = subprocess.run(
+                ["git", "-C", str(repo_dir), "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True, text=True, check=True
+            )
+            current_branch = branch_res.stdout.strip()
+            
+            # Fetch specifically from origin
+            subprocess.run(["git", "-C", str(repo_dir), "fetch", "origin"], check=True)
+            
+            # Reset to origin/branch to avoid merge conflicts and tracking issues for an agent
+            subprocess.run(["git", "-C", str(repo_dir), "reset", "--hard", f"origin/{current_branch}"], check=True)
+        except Exception as e:
+            logging.warning(f"⚠️ Robust update failed for {owner}/{repo}: {e}. Falling back to standard pull.")
+            subprocess.run(["git", "-C", str(repo_dir), "pull"], check=True)
     return repo_dir
 
 

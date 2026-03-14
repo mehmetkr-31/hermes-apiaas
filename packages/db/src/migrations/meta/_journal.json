@@ -1,41 +1,48 @@
 {
-	"version": "7",
-	"dialect": "sqlite",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "6",
-			"when": 1773222045994,
-			"tag": "0000_ambiguous_dracula",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "6",
-			"when": 1773232798380,
-			"tag": "0001_careless_gwen_stacy",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "6",
-			"when": 1773238591830,
-			"tag": "0002_aromatic_ricochet",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "6",
-			"when": 1773306208872,
-			"tag": "0003_ambiguous_rachel_grey",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "6",
-			"when": 1773408903781,
-			"tag": "0004_goofy_micromacro",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1773222045994,
+      "tag": "0000_ambiguous_dracula",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773232798380,
+      "tag": "0001_careless_gwen_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773238591830,
+      "tag": "0002_aromatic_ricochet",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1773306208872,
+      "tag": "0003_ambiguous_rachel_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1773408903781,
+      "tag": "0004_goofy_micromacro",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1773486333146,
+      "tag": "0005_opposite_hex",
+      "breakpoints": true
+    }
+  ]
 }

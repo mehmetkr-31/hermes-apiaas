@@ -26,6 +26,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
 from typing import Optional
 import uvicorn
+
+# Ensure agent scripts can be imported BEFORE anything else from this directory
+script_dir = pathlib.Path(__file__).parent.resolve()
+parent_dir = script_dir.parent.resolve()
+if str(script_dir) not in sys.path:
+    sys.path.insert(0, str(script_dir))
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
+
 from run_agent import AIAgent
 from encryption_utils import decrypt
 from reporter import (
@@ -52,14 +61,6 @@ logging.basicConfig(
 # Silence noisy library logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telegram").setLevel(logging.WARNING)
-
-# Ensure agent scripts can be imported
-script_dir = pathlib.Path(__file__).parent.resolve()
-parent_dir = script_dir.parent.resolve()
-if str(script_dir) not in sys.path:
-    sys.path.insert(0, str(script_dir))
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
 
 HERMES_CMD = os.getenv("HERMES_CMD", "hermes")
 

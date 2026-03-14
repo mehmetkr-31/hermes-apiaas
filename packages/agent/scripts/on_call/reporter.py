@@ -51,7 +51,7 @@ try:
     agent_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     if agent_root not in sys.path:
         sys.path.insert(0, agent_root)
-    import tools.send_message_tool
+    import custom_tools.send_message_tool
 
     logging.info("🚀 Local send_message_tool (Modern UI) loaded successfully.")
 except Exception as e:

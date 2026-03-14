@@ -4,7 +4,7 @@ Hermes Telegram Reporter + Interactive Bot (SDK Version)
 
 Modes:
   1. send_telegram_message(text)    → one-shot message
-  2. request_approval(text, id)      → blocks until user clicks Approve/Reject
+  2. request_approval(text, id)      → blocks until user clicks Approve/Reject/Rollback
   3. start_bot()                    → long-poll bot with command & callback handlers
 
 Database:
@@ -396,23 +396,33 @@ def get_approval_status(approval_id: str) -> str:
 
 
 async def _request_approval_async(
-    text: str, approval_id: str, repo_full_name: str, timeout: int = 300
-) -> bool:
+    text: str,
+    approval_id: str,
+    repo_full_name: str,
+    timeout: int = 300,
+    allow_rollback: bool = False,
+) -> str:
     """Internal async logic to send a message with buttons and poll the DB."""
     bot_token, chat_id = get_telegram_context(repo_full_name)
     if not bot_token or not chat_id:
         logging.warning(
             f"Telegram not configured for {repo_full_name}. Auto-approving for development."
         )
-        return True
+        return "approved"
 
     bot = telegram.Bot(token=bot_token)
-    keyboard = [
-        [
-            InlineKeyboardButton("✅ Approve", callback_data=f"appr_{approval_id}"),
-            InlineKeyboardButton("❌ Reject", callback_data=f"rejc_{approval_id}"),
-        ]
+
+    buttons = [
+        InlineKeyboardButton("✅ Approve", callback_data=f"appr_{approval_id}"),
+        InlineKeyboardButton("❌ Reject", callback_data=f"rejc_{approval_id}"),
     ]
+
+    if allow_rollback:
+        buttons.insert(
+            1, InlineKeyboardButton("🚀 Rollback", callback_data=f"roll_{approval_id}")
+        )
+
+    keyboard = [buttons]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Use UI Card for approval request
@@ -441,12 +451,9 @@ async def _request_approval_async(
         start_time = time.time()
         while time.time() - start_time < timeout:
             status = get_approval_status(approval_id)
-            if status == "approved":
-                logging.info(f"✅ Approval {approval_id} granted via DB.")
-                return True
-            if status == "rejected":
-                logging.info(f"❌ Approval {approval_id} rejected via DB.")
-                return False
+            if status in ("approved", "rejected", "rollback"):
+                logging.info(f"✅ Approval {approval_id} resolved as {status} via DB.")
+                return status
             await asyncio.sleep(2)
 
         # Timeout handling
@@ -460,28 +467,35 @@ async def _request_approval_async(
             parse_mode="HTML",
         )
         set_approval_status(approval_id, "rejected")
-        return False
+        return "rejected"
     except Exception as e:
         logging.error(f"Approval request failed for {approval_id}: {e}")
-        return False
+        return "rejected"
 
 
 def request_approval(
-    text: str, approval_id: str, repo_full_name: str, timeout: int = 300
-) -> bool:
+    text: str,
+    approval_id: str,
+    repo_full_name: str,
+    timeout: int = 300,
+    allow_rollback: bool = False,
+) -> str:
     """
     Synchronous blocking call for agents.
     Sends message with buttons and waits for user interaction in Telegram.
+    Returns status: "approved", "rejected", or "rollback".
     """
     logging.info(f"⏳ Waiting for user approval on {approval_id} via Telegram...")
     try:
         # Create a new loop for this sync call if none exists
         return asyncio.run(
-            _request_approval_async(text, approval_id, repo_full_name, timeout)
+            _request_approval_async(
+                text, approval_id, repo_full_name, timeout, allow_rollback
+            )
         )
     except Exception as e:
         logging.error(f"Error in request_approval sync wrapper: {e}")
-        return False
+        return "rejected"
 
 
 # ── Message Utilities ──────────────────────────────────────────────────────
@@ -800,6 +814,26 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     .strip(),
                     format_telegram_card(
                         title="Action Approved", content="", level="success"
+                    )
+                    .split("────────────────────")[0]
+                    .strip(),
+                )
+                await query.edit_message_text(text=new_text, parse_mode="HTML")
+
+        elif data.startswith("roll_"):
+            aid = data[len("roll_") :]
+            logging.info(f"🚀 Rolling back action: {aid}")
+            set_approval_status(aid, "rollback")
+            if query.message:
+                msg_text = getattr(query.message, "text", "") or ""
+                new_text = str(msg_text).replace(
+                    format_telegram_card(
+                        title="Permission Required", content="", level="incident"
+                    )
+                    .split("────────────────────")[0]
+                    .strip(),
+                    format_telegram_card(
+                        title="Rollback Triggered", content="", level="info"
                     )
                     .split("────────────────────")[0]
                     .strip(),

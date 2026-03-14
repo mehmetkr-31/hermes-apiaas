@@ -352,6 +352,12 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
 
     elif event_type == "push":
         branch = payload.get("ref", "").replace("refs/heads/", "")
+        if branch == "main":
+            logging.info(
+                f"⏭️  Ignoring push to 'main' branch in {owner}/{repo_name} to avoid noise."
+            )
+            return {"status": "ignored", "reason": "push to main"}
+
         pusher = payload.get("pusher", {}).get("name", "Someone")
 
         commits = payload.get("commits", [])

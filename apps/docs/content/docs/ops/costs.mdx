@@ -1,0 +1,36 @@
+---
+title: Cost & Token Management
+description: Understanding the economics of your AI agent.
+---
+
+# Cost Tracking
+
+AI automation can be expensive if not monitored. AGIAAS provides granular financial tracking to ensure you remain within budget.
+
+## How Costs are Calculated
+
+AGIAAS tracks every request made to the AI provider.
+
+1. **Token Counting**: We count the input and output tokens for every procedure call.
+2. **Model Metadata**: Based on the `AI_MODEL` configured, we map the token counts to the current pricing (e.g., $3 per million input tokens for Claude-3.5-Sonnet).
+3. **Record Keeping**: Every incident cost is recorded in the `@agiaas/db` costs table.
+
+## Optimization Strategies
+
+### Triage vs. Analysis
+- **Low-Cost Triage**: Use cheaper models like `google/gemini-flash` or `hermes-3` for initial incident triage.
+- **High-IQ Analysis**: Reserve `anthropic/claude-3.5-sonnet` for complex root-cause analysis and code generation.
+
+### Context Management
+AGIAAS automatically prunes overly large log files and selects only the most relevant files for the current issue to minimize input token costs.
+
+## Monitoring
+
+You can view your real-time spend in the **Finance** tab of the AGIAAS Dashboard.
+
+- **Current Spend**: Total cost for the current billing cycle.
+- **Top Incidents**: A list of the most "expensive" incidents analyzed by the agent.
+- **Efficiency Index**: A ratio of successful PRs to token cost.
+
+> [!TIP]
+> Set an `AI_BUDGET_LIMIT` in your environment to receive a notification via Telegram if your daily spend exceeds a threshold.

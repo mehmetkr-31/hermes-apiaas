@@ -1,0 +1,44 @@
+---
+title: "@agiaas/api & @agiaas/db"
+description: Data layer and API reference for AGIAAS.
+---
+
+# Data & API Layer
+
+AGIAAS uses a type-safe architecture for communication and persistent storage.
+
+## `@agiaas/api` (Backend)
+
+The backend is built with **oRPC**, providing end-to-end type safety between the server and the frontend.
+
+### Stack
+- **Framework**: Hono / oRPC.
+- **Protocol**: HTTP/JSON.
+- **Features**: Real-time logging streaming and type-safe procedure calls.
+
+### Key Procedures
+- `getIncidents()`: Fetches prioritized incident lists.
+- `getCostMetrics()`: Aggregates token usage and costs.
+- `approveAction()`: Triggered via the Telegram bridge or Dashboard.
+
+## `@agiaas/db` (Persistence)
+
+The database layer is managed by **Drizzle ORM** targeting **SQLite**.
+
+### Tables
+- **`incidents`**: Stores issue metadata, status, and related PRs.
+- **`logs`**: Centralized audit trails for every operation.
+- **`costs`**: Detailed breakdown of financial costs per incident.
+
+### Commands
+- `pnpm db:push`: Sync schema with local SQLite.
+- `pnpm db:studio`: Launch a visual database explorer.
+
+```typescript
+// Example Procedure Definition
+export const appRouter = router({
+  incidents: {
+    list: procedure.query(() => db.select().from(incidents)),
+  }
+});
+```

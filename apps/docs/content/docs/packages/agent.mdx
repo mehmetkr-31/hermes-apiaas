@@ -1,0 +1,37 @@
+---
+title: "@agiaas/agent (Hermes Foundation)"
+description: Technical reference for the Python-based core built on the Hermes Agent engine.
+---
+
+# `@agiaas/agent`
+
+The `@agiaas/agent` is the core execution engine, built entirely as a specialized instance of the [Hermes Agent](https://hermes-agent.nousresearch.com/docs/). It lives in `packages/agent` and leverages the self-improving autonomous framework designed by **Nous Research**.
+
+## Hermes Engine Architecture
+
+The agent follows the [Hermes architecture](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture), utilizing a tool-calling loop and a persistent memory system.
+
+### Key Integration Points
+
+- **`run_agent.py`**: A customized entry point for the Hermes engine that initializes the AGIAAS-specific context.
+- **Hermes Skillset**: The agent has access to standard [Hermes Skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills) like `ReadFS`, `WriteFS`, `Search`, and `RunShell`.
+- **Experience System**: Utilizes the Hermes experience/memory system to avoid repeating mistakes across different incidents in the same repository.
+
+## The Hermes Analysis Loop
+
+1. **Session Initialization**: Loads environment variables and connects to the [Hermes AI Gateway](https://hermes-agent.nousresearch.com/docs/).
+2. **Autonomous Analysis**: The [Hermes-3-Llama-3.1](https://hermes-agent.nousresearch.com/docs/) model explores the codebase to locate the root cause of the incident.
+3. **Drafting Fixes**: Uses the Hermes code generation skills to draft a high-quality patch.
+4. **Validation**: Runs tests via the `RunCommand` skill in an isolated Hermes environment.
+5. **Human Approval**: Streams the results to the Telegram bridge for final user confirmation.
+
+## Command Line Interface
+
+You can interact with the underlying Hermes engine directly:
+
+```bash
+python packages/agent/run_agent.py --issue-url <URL> --event <GH_EVENT>
+```
+
+> [!TIP]
+> To understand the full power of the underlying engine, explore the [Hermes Agent Documentation](https://hermes-agent.nousresearch.com/docs/).

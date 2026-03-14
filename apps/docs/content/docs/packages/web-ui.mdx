@@ -1,0 +1,44 @@
+---
+title: "@agiaas/web & @agiaas/ui"
+description: Frontend architecture and shared component library.
+---
+
+# Documentation for Frontend
+
+The AGIAAS user interface is built for performance and modern aesthetics.
+
+## `@agiaas/web` (Dashboard)
+
+The main management dashboard.
+
+### Tech Stack
+- **Framework**: TanStack Start (Prerendered).
+- **Styling**: Tailwind CSS.
+- **State Management**: TanStack Query (integrated via oRPC).
+
+### Main Pages
+- **Overview**: Real-time status of all managed repositories.
+- **Incident Detail**: Deep dive into AI analysis logs and generated PRs.
+- **Finance**: Monthly cost breakdown and token efficiency metrics.
+
+## `@agiaas/ui` (Components)
+
+A shared component library used across both the Dashboard and the Documentation site.
+
+### Design System
+- **Primitive Components**: Built with Radix UI for accessibility.
+- **Visuals**: Modern aesthetics using Glassmorphism and ASCII effects.
+- **Animations**: Subtle micro-animations for interactive feedback.
+
+### Key Components
+- **`Logo`**: The official AGIAAS SVG logo.
+- **`ASCIIText`**: A WebGL-powered typography component used for premium landing pages.
+- **`CostBadge`**: A dynamic indicator showing the cost of an incident.
+
+```tsx
+import { ASCIIText } from "@agiaas/ui/components/ASCIIText";
+
+export function Hero() {
+  return <ASCIIText text="AGIAAS" />;
+}
+```

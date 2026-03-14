@@ -1,0 +1,43 @@
+---
+title: The Hermes Core Layer
+description: Deep dive into the autonomous capabilities powered by the Hermes Agent core.
+---
+
+# The Hermes Core Layer
+
+The heart of AGIAAS is the `@agiaas/agent`. This layer is a specialized implementation of the [Hermes Agent](https://hermes-agent.nousresearch.com/docs/), an autonomous system designed by **Nous Research**.
+
+## Powered by Hermes Agent
+
+AGIAAS leverages the [Hermes Agent's core philosophy](https://hermes-agent.nousresearch.com/docs/): it's not a tethered copilot, but a fully autonomous entity that gets more capable the longer it runs.
+
+### How it Works in AGIAAS
+
+When the agent is triggered by a GitHub event, it follows the [Hermes learning loop](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture):
+
+#### 1. Context Acquisition
+The agent uses the Hermes [Context Files system](https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files) to ingest relevant codebase parts, issues, and logs.
+
+#### 2. Hermes Root-Cause Analysis (RCA)
+Using the [Hermes-3-Llama-3.1](https://hermes-agent.nousresearch.com/docs/) model, the agent performs deep reasoning. It acts as an autonomous engineer that:
+- Identifies the exact line of failure using advanced search skills.
+- Suggests fixes based on deep codebase comprehension.
+- Evaluates risks using the Hermes [Security principles](https://hermes-agent.nousresearch.com/docs/user-guide/security).
+
+#### 3. Skill-Based Execution
+The agent utilizes the [Hermes Skill System](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills) to execute commands in isolated environments. This includes:
+- Code patching via the `EditFile` skill.
+- Automated testing via the `RunCommand` skill.
+- Repository management via the [MCP Integration](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp).
+
+#### 4. Unified PR Generation
+If a fix is verified, the agent prepares a Pull Request, utilizing its experience from previous sessions to provide a clear and concise summary of the changes.
+
+## Optimized AI Models
+
+AGIAAS is fine-tuned to work with the best models for the Hermes core:
+- **Hermes-3**: The flagship model from Nous Research, optimized for tool-calling and autonomous reasoning.
+- **Claude-3.5-Sonnet**: A powerful partner for the Hermes engine when extreme reasoning depth is required.
+
+> [!TIP]
+> To learn more about how Hermes improves over time, check the [Hermes Agent Documentation](https://hermes-agent.nousresearch.com/docs/).

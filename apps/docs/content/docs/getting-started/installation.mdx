@@ -1,0 +1,74 @@
+---
+title: Installation
+description: Learn how to set up AGIAAS on your local machine.
+---
+
+# Installation
+
+Follow these steps to get AGIAAS up and running.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js**: v18 or higher (Recommended: v20)
+- **pnpm**: v9 or higher
+- **Python**: v3.12 or higher
+- **GitHub CLI (`gh`)**: For repository interactions.
+- **SQLite3**: For the local database.
+- **cloudflared**: For webhook tunnels.
+
+## Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/alikar/hermes-apiaas.git
+cd hermes-apiaas
+```
+
+## Step 2: Install Dependencies
+
+AGIAAS uses `pnpm` for managing the monorepo.
+
+```bash
+pnpm install
+```
+
+## Step 3: Initialize the Database
+
+Push the schema to your local SQLite database:
+
+```bash
+pnpm db:push
+```
+
+## Step 4: Environment Configuration
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Now, edit `.env` and fill in the required tokens. See the [Configuration](/docs/getting-started/configuration) guide for details.
+
+## Step 5: Start Development Servers
+
+You can start the main dashboard and API using:
+
+```bash
+pnpm dev
+```
+
+The Web Dashboard will be available at [http://localhost:5173](http://localhost:5173).
+
+## Step 6: Start Webhook Server
+
+In a separate terminal, start the webhook bridge:
+
+```bash
+cd packages/webhook-server
+pnpm dev
+```
+
+> [!NOTE]
+> The webhook server will automatically open a Cloudflare tunnel and update your GitHub repository webhook settings.

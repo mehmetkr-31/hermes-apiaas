@@ -1,0 +1,31 @@
+---
+title: Security & Principles
+description: How AGIAAS keeps your infrastructure safe and your tokens secure.
+---
+
+# Security First
+
+AGIAAS handles high-stakes operations like codebase modification and PR generation. We've built the system with a "Defense in Depth" strategy.
+
+## Core Safety Principles
+
+### 1. Explicit Human Approval
+No code is ever merged or pushed to a protected branch without a direct "Approve" signal from an authorized user. The AI proposes; the human disposes.
+
+### 2. Isolated Execution
+The agent operates in strictly isolated temporary directories. It has no long-term persistence on the disk, reducing the risk of accidental data leaks or corruptions.
+
+### 3. Encrypted Secrets
+Sensitive tokens (GitHub, Telegram) and webhook secrets are never stored in plain text. We utilize standard environment variable patterns and advise the use of **Cloudflare Secrets** for production deployments.
+
+## Data Privacy
+
+- **On-Premise Data**: Logs and cost metrics are stored in your local SQLite database.
+- **AI Context**: Only contextually relevant files and logs are sent to the AI providers. We recommend using enterprise-grade providers like Anthropic via OpenRouter for enhanced data privacy.
+
+## Audit Trails
+
+Every interaction with the AI and every shell command executed by the agent is logged with a timestamp and parent-incident reference. This allows for full forensic analysis if an agent performs an unexpected action.
+
+> [!CAUTION]
+> Always review the code diff provided in Telegram before tapping "Approve". While the AI is powerful, it is your responsibility to verify the logic.

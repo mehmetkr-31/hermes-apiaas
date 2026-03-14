@@ -1,0 +1,48 @@
+---
+title: Configuration
+description: Essential environment variables and credentials for AGIAAS.
+---
+
+# Configuration
+
+AGIAAS requires several environment variables to function correctly. These are managed via a central `.env` file in the root of the monorepo.
+
+## Required Variables
+
+### AI Provider Tools
+
+AGIAAS leverages **OpenRouter** or **Nous** for LLM inference.
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key. | `sk-or-v1-...` |
+| `AI_PROVIDER` | The model provider to use. | `openrouter` or `nous` |
+| `AI_MODEL` | The specific model identifier. | `anthropic/claude-3.5-sonnet` |
+
+### GitHub Integration
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `GITHUB_TOKEN` | Personal Access Token with `repo` and `workflow` scopes. | `ghp_...` |
+| `GITHUB_USERNAME` | Your GitHub account username. | `alikar` |
+
+### Interaction
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `TELEGRAM_BOT_TOKEN` | Token obtained from @BotFather. | `123456:ABC...` |
+| `TELEGRAM_CHAT_ID` | Your personal chat ID to receive alerts. | `987654321` |
+
+## Security Best Practices
+
+- **Never commit your `.env` file**: It is automatically ignored by `.gitignore`.
+- **Rotatable Tokens**: We recommend using tokens with short expiration dates where possible.
+- **Scoped Tokens**: Ensure your `GITHUB_TOKEN` has the minimum necessary permissions.
+
+## Using Secrets in Production
+
+When deploying to Cloudflare Workers/Pages, you should set these variables as **Secrets** in the Cloudflare Dashboard rather than using a physical `.env` file.
+
+```bash
+npx wrangler secret put GITHUB_TOKEN
+```

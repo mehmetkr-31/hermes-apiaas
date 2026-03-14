@@ -1,0 +1,34 @@
+---
+title: Webhook Automation
+description: Zero-config monitoring using Cloudflare Tunnels.
+---
+
+# Automated Webhook Management
+
+Setting up webhooks for multiple repositories can be tedious. AGIAAS automates this entire process using the `@agiaas/webhook-server`.
+
+## The "Zero-Config" Approach
+
+When you start the webhook server, it performs the following steps:
+
+1. **Tunnel Creation**: Opens a secure **Cloudflare Tunnel** to your local machine.
+2. **Endpoint Exposure**: Generates a public URL (e.g., `https://random-id.trycloudflare.com`).
+3. **Repository Discovery**: Lists all repositories accessible via your `GITHUB_TOKEN`.
+4. **Auto-Registration**: Adds or updates the webhook endpoint on those repositories for events like:
+   - `Issues`
+   - `Pull Requests`
+   - `Workflow Runs`
+
+## Event Ingestion
+
+The server acts as a high-performance bridge. It:
+- Validates the GitHub signature to ensure requests are authentic.
+- Decouples the ingestion from the agent execution, ensuring webhooks are acknowledged within GitHub's timeout limits (10s).
+- Triggers the `@agiaas/agent` with the serialized payload.
+
+## Manual Overrides
+
+If you prefer manual control, you can disable auto-registration in the configuration and manually set the webhook URL in GitHub's repository settings.
+
+> [!TIP]
+> You can monitor active tunnels and incoming webhook payloads in real-time on the AGIAAS Dashboard.

@@ -93,6 +93,7 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
    cd agiaas
    pnpm install
    pnpm setup  # 👈 This will create your .env interactively
+   pnpm db:migrate
    ```
 
 2. **Run the Platform**
@@ -106,26 +107,25 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
 
 ### Local Platform Setup (No Docker)
 
-3. **Environment Setup**
-   Copy the example environment file and fill in your keys:
+1. **Clone & Setup**
    ```bash
-   cp .env.example .env
+   git clone https://github.com/mehmetkr-31/agiaas.git
+   cd agiaas
+   pnpm install
+   pnpm setup  # 👈 Creates your .env interactively
    ```
-   > [!IMPORTANT]
-   > Ensure `TELEGRAM_BOT_TOKEN`, `GITHUB_TOKEN`, and your AI provider keys (OpenRouter/Nous) are correctly set.
 
-4. **Launch Dashboard & API**
+2. **Initialize Agent**
+   ```bash
+   pnpm python:install # 👈 Installs and patches the AI Agent library
+   ```
+
+3. **Run Everything**
    ```bash
    pnpm dev
    ```
-   Web Dashboard: `http://localhost:5173`
 
-5. **Start Webhook Server & Tunnel**
-   ```bash
-   cd packages/webhook-server
-   npm run dev
-   ```
-   *The webhook server will automatically open a Cloudflare tunnel and sync the URL to your GitHub repositories.*
+> Access the **Dashboard** at `http://localhost:3678` and the **AI Agent** at `http://localhost:8678`.
 
 ---
 

@@ -8,10 +8,11 @@
 	"type": "module",
 	"scripts": {
 		"setup": "node scripts/setup.mjs",
-		"dev": "turbo dev",
+		"dev": "turbo db:migrate && turbo dev server:standalone --parallel",
+		"dev:web": "turbo -F web dev",
+		"dev:agent": "turbo -F @agiaas/agent server:standalone",
 		"build": "turbo build",
 		"check-types": "turbo check-types",
-		"dev:web": "turbo -F web dev",
 		"db:push": "turbo -F @agiaas/db db:push",
 		"db:studio": "turbo -F @agiaas/db db:studio",
 		"db:generate": "turbo -F @agiaas/db db:generate",

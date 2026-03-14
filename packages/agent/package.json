@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"server:standalone": "../../.venv/bin/uvicorn scripts.on_call.webhook_receiver:app --reload --port 8090",
+		"server:standalone": "../../.venv/bin/uvicorn scripts.on_call.webhook_receiver:app --reload --port 8678",
 		"install": "pnpm -w python:install",
 		"check-types": "pyright scripts/"
 	},

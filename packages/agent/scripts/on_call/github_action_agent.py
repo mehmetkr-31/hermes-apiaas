@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, subprocess, pathlib, logging, time, re
+import os, subprocess, pathlib, logging, time, re, json
 from typing import Optional
 from datetime import datetime
 from dotenv import load_dotenv
@@ -31,9 +31,6 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
 )
-
-
-# Removed local ensure_repo_cloned (now in reporter.py)
 
 
 def handle_failed_action(
@@ -160,25 +157,93 @@ YOUR TASK:
 
     log_step("Waiting for user approval...")
 
+    # Find last successful run for rollback option
+    last_success_id = None
+    try:
+        repo_full = f"{owner}/{repo}"
+        # Get the workflow ID or name for the current run to filter by the SAME workflow
+        workflow_res = subprocess.run(
+            [
+                "gh",
+                "run",
+                "view",
+                str(run_id),
+                "--repo",
+                repo_full,
+                "--json",
+                "workflowDatabaseId",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        wf_data = json.loads(workflow_res.stdout)
+        wf_id = wf_data.get("workflowDatabaseId")
+
+        if wf_id:
+            success_res = subprocess.run(
+                [
+                    "gh",
+                    "run",
+                    "list",
+                    "--repo",
+                    repo_full,
+                    "--workflow",
+                    str(wf_id),
+                    "--status",
+                    "success",
+                    "--limit",
+                    "1",
+                    "--json",
+                    "databaseId",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            success_data = json.loads(success_res.stdout)
+            if success_data:
+                last_success_id = success_data[0].get("databaseId")
+    except Exception as e:
+        logging.warning(f"Could not fetch last successful run: {e}")
+
     # Request Approval
-    approval_text = f"Hermes diagnosed a failure in *- {workflow_name} -*\n\n*Diagnosis:*\n{diagnosis[:3800]}...\n\n*Should I rerun the failed jobs?*"
-    approved = request_approval(
+    approval_text = f"Hermes diagnosed a failure in *- {workflow_name} -*\n\n*Diagnosis:*\n{diagnosis[:3500]}...\n\n"
+    if last_success_id:
+        approval_text += f"💡 *Rollback Option:* I found a previous successful run (#<code>{last_success_id}</code>). You can rollback to it or retry the current failed jobs."
+    else:
+        approval_text += "*Should I rerun the failed jobs?*"
+
+    status = request_approval(
         approval_text,
         f"action_{run_id}_{int(time.time())}",
         repo_full_name=f"{owner}/{repo}",
+        allow_rollback=bool(last_success_id),
     )
 
-    if approved:
+    if status == "approved":
         log_step("Approved! Rerunning jobs...")
         logging.info("🚀 Approved! Rerunning failed jobs.")
-        result = do_rollback(run_id, owner, repo)
-        send_telegram_message(f"🔄 {result}", repo_full_name=f"{owner}/{repo}")
-        log_step(f"Result: {result}")
+        res = do_retry(run_id, owner, repo)
+        send_telegram_message(f"🔄 {res}", repo_full_name=f"{owner}/{repo}")
+        log_step(f"Result: {res}")
+    elif status == "rollback":
+        if last_success_id is not None:
+            log_step(f"Rollback requested to run #{last_success_id}")
+            logging.info(f"🚀 Rollback triggered to run #{last_success_id}")
+            res = do_rollback(int(last_success_id), owner, repo)
+            send_telegram_message(f"⏪ {res}", repo_full_name=f"{owner}/{repo}")
+            log_step(f"Result: {res}")
+        else:
+            log_step("Rollback requested but no successful run found.")
+            send_telegram_message(
+                "❌ Rollback failed: No previous successful run found.",
+                repo_full_name=f"{owner}/{repo}",
+            )
     else:
         log_step("Rejected by user.")
-        logging.info("🛑 Rejected by user. Skipping rerun.")
+        logging.info("🛑 Rejected by user. Skipping action.")
         send_telegram_message(
-            f"🛑 Rerun for Action #{run_id} was rejected by user.",
+            f"🛑 Action for run #{run_id} was rejected by user.",
             repo_full_name=f"{owner}/{repo}",
         )
 
@@ -186,10 +251,10 @@ YOUR TASK:
     log_step("Mission complete.")
 
 
-def do_rollback(
+def do_retry(
     run_id: int, owner: Optional[str] = None, repo: Optional[str] = None
 ) -> str:
-    """Triggered by approval or legacy command."""
+    """Reruns failed jobs of the current run."""
     try:
         repo_arg = f"{owner}/{repo}" if owner and repo else None
         cmd = ["gh", "run", "rerun", str(run_id), "--failed"]
@@ -198,7 +263,26 @@ def do_rollback(
 
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
         if result.returncode == 0:
-            return f"✅ Rerun triggered for run #{run_id}"
+            return f"Retry triggered for failed jobs in run #{run_id}"
+        return f"❌ gh error: {result.stderr.strip()}"
+    except Exception as e:
+        return f"❌ Retry failed: {e}"
+
+
+def do_rollback(
+    success_run_id: int, owner: Optional[str] = None, repo: Optional[str] = None
+) -> str:
+    """Reruns all jobs of a PREVIOUS successful run to effectively 'rollback' deployment."""
+    try:
+        repo_arg = f"{owner}/{repo}" if owner and repo else None
+        # Rerunning a successful run will rerun all its jobs
+        cmd = ["gh", "run", "rerun", str(success_run_id)]
+        if repo_arg:
+            cmd.extend(["--repo", repo_arg])
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if result.returncode == 0:
+            return f"Rollback triggered: Rerunning successful run #{success_run_id}"
         return f"❌ gh error: {result.stderr.strip()}"
     except Exception as e:
         return f"❌ Rollback failed: {e}"

@@ -33,9 +33,6 @@ logging.basicConfig(
 )
 
 
-# Removed local ensure_repo_cloned (now in reporter.py)
-
-
 def handle_issue(
     issue_number: int,
     title: str = "",
@@ -170,13 +167,13 @@ def handle_issue(
 
     # Request Approval
     approval_text = f"Hermes has finished analyzing Issue #{issue_number}.\n\n*Proposed Comment:*\n{analysis[:3800]}..."
-    approved = request_approval(
+    status = request_approval(
         approval_text,
         f"issue_{issue_number}_{int(time.time())}",
         repo_full_name=f"{owner}/{repo}",
     )
 
-    if approved:
+    if status == "approved":
         if not analysis.strip():
             log_step("Approved, but analysis is empty. Skipping GitHub comment.")
             logging.warning(

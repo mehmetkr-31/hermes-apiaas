@@ -20,6 +20,7 @@ AGIAAS (Autonomous GitHub Incident Analysis & Automation System) is a powerful *
 - **🧠 Brain Layer:** Leverage Claude-3.5-Sonnet or Hermes-Llama for deep root-cause analysis.
 - **📱 Human-in-the-Loop:** Interactive approval flow via Telegram bots—you decide, AI executes.
 - **🛠️ Autonomous Fixes:** Automated branch creation, code patching, and PR generation.
+- **⏪ CI/CD Rollback:** One-tap rollback to the last successful workflow run when a failure is detected.
 - **💰 Cost Transparency:** Real-time token usage and cost calculation for every operation.
 - **📡 Webhook Automation:** Zero-config webhook synchronization using Cloudflare tunnels.
 

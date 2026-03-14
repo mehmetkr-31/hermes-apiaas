@@ -19,7 +19,7 @@ function Home() {
 					<ASCIIText
 						text="AGIAAS"
 						asciiFontSize={8}
-						textFontSize={150}
+						textFontSize={typeof window !== "undefined" && window.innerWidth < 768 ? 80 : 150}
 						textColor="#ffffff"
 						enableWaves={true}
 						planeBaseHeight={10}
@@ -27,18 +27,18 @@ function Home() {
 				</div>
 
 				{/* Content Layer */}
-				<div className="container relative z-10 mx-auto flex flex-1 flex-col justify-center px-6 py-24 text-center">
+				<div className="container relative z-10 mx-auto flex flex-1 flex-col justify-center px-6 py-20 text-center sm:py-24">
 					<div className="mb-8 flex justify-center">
-						<Logo className="h-20 w-auto" />
+						<Logo className="h-16 w-auto sm:h-20" />
 					</div>
 
-					<h1 className="fade-in slide-in-from-bottom-8 mx-auto mb-10 max-w-4xl animate-in bg-gradient-to-b from-white to-white/40 bg-clip-text font-black text-5xl text-transparent tracking-tighter delay-100 duration-1000 lg:text-7xl">
+					<h1 className="fade-in slide-in-from-bottom-8 mx-auto mb-8 max-w-4xl animate-in bg-gradient-to-b from-white to-white/40 bg-clip-text font-black text-4xl text-transparent tracking-tighter delay-100 duration-1000 sm:text-6xl lg:text-7xl">
 						Documentation,
 						<br />
 						simplified.
 					</h1>
 
-					<p className="fade-in slide-in-from-bottom-10 mx-auto mb-12 max-w-2xl animate-in text-lg text-zinc-400 delay-150 duration-1000">
+					<p className="fade-in slide-in-from-bottom-10 mx-auto mb-10 max-w-2xl animate-in text-base text-zinc-400 delay-150 duration-1000 sm:mb-12 sm:text-lg">
 						Learn how to build, deploy, and manage autonomous AI agents with
 						AGIAAS. Everything you need to master our intelligent incident
 						management platform.
@@ -48,7 +48,7 @@ function Home() {
 						<Link to="/docs/$" params={{ _splat: "" }}>
 							<Button
 								size="lg"
-								className="h-14 rounded-2xl px-10 font-bold text-base shadow-2xl shadow-primary/20 transition-transform hover:scale-105 active:scale-95"
+								className="h-12 w-full rounded-2xl px-10 font-bold text-base shadow-2xl shadow-primary/20 transition-transform hover:scale-105 active:scale-95 sm:h-14 sm:w-auto"
 							>
 								Explore Docs
 								<ArrowRight className="ml-2 h-5 w-5" />

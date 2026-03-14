@@ -62,7 +62,8 @@ When an incident hits your infrastructure, AGIAAS runs a **6-step autonomous pip
 
 ### Incident Intelligence
 - **🎯 Proactive Monitoring** — Real-time tracking of GitHub Issues, PRs, and Workflow failures via webhooks
-- **🧠 Mixture-of-Agents Debate** — Multi-agent reasoning for deep root-cause analysis using Claude-3.5-Sonnet / Hermes-4-405B
+- **🧠 Mixture-of-Agents Debate** — Multi-agent reasoning for deep root-cause analysis
+- **🔀 Dynamic Model Selection** — Choose AI models per-repo from the dashboard (Hermes-4-405B, Claude-3.5-Sonnet, Gemini Flash) with 3-tier priority: Project → Global → Auto-detect
 - **🔍 Contextual Research** — Combines web search with historical session data to inform diagnostic decisions
 - **📓 Auto Runbook Generation** — Every resolved incident produces a structured runbook to prevent recurrence
 
@@ -151,8 +152,8 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
 
 | Layer | Technology |
 | :--- | :--- |
-| **AI Models** | Claude-3.5-Sonnet, Hermes-4-405B (via OpenRouter / Nous Research) |
-| **Agent Engine** | Custom Python agent with Mixture-of-Agents reasoning |
+| **AI Models** | Hermes-4-405B (Nous Research) · Claude-3.5-Sonnet (OpenRouter) · Gemini Flash — **per-repo configurable** |
+| **Agent Engine** | Custom Python agent with Mixture-of-Agents reasoning + dynamic model routing |
 | **Frontend** | TanStack Start + Tailwind CSS + Radix UI + WebGL (ASCIIText) |
 | **Backend API** | oRPC (end-to-end type safety) + Hono |
 | **Database** | SQLite + Drizzle ORM + AES-256-GCM encrypted secrets |

@@ -47,15 +47,36 @@ Every resolved incident automatically generates a runbook via `generate_runbook(
 - Resolution steps
 - Lessons learned
 
-## Optimized AI Models
+## Dynamic Model Selection
 
-AGIAAS is designed to work with multiple AI models:
-- **Hermes-4-405B**: The flagship model from Nous Research, optimized for tool-calling and autonomous reasoning
-- **Claude-3.5-Sonnet**: A powerful partner when extreme reasoning depth is required
-- **Gemini Flash**: Cost-effective option for initial triage
+AGIAAS features a **3-tier model priority system** that lets you configure AI models per repository:
+
+```
+Priority: Project Config  →  Global Default  →  API Key Auto-Detect
+              ↓                   ↓                    ↓
+     Dashboard per-repo     Global config       Nous key → Hermes-4-405B
+     model setting          from DB             OpenRouter → Claude-3.5-Sonnet
+```
+
+### Supported Models
+
+| Model | Provider | Best For |
+| :--- | :--- | :--- |
+| **Hermes-4-405B** | Nous Research (direct) | Default for Nous API keys. Tool-calling, autonomous reasoning |
+| **Hermes-4-70B** | Nous Research (direct) | Lighter Nous model for faster triage |
+| **Claude-3.5-Sonnet** | OpenRouter | Default for OpenRouter keys. Deep reasoning |
+| **Gemini Flash** | OpenRouter | Cost-effective initial triage |
+
+### Model Routing Logic
+
+The agent automatically selects the right provider based on your API key:
+- **`NOUS_API_KEY`** (starts with `sk-2yd`) → routes to `inference-api.nousresearch.com`
+- **`OPENROUTER_API_KEY`** → routes to `openrouter.ai/api/v1`
+
+You can override the model for each repository from the Dashboard, and the system handles API prefix normalization automatically.
 
 > [!TIP]
-> Use lighter models for initial triage and reserve Claude-3.5-Sonnet for complex root-cause analysis to optimize costs.
+> Use Hermes-4-70B or Gemini Flash for initial triage and reserve Claude-3.5-Sonnet for complex root-cause analysis to optimize costs.
 
 ## Custom Tools
 

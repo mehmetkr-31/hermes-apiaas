@@ -39,6 +39,11 @@ When an incident hits, AGIAAS runs an autonomous pipeline:
     icon="Brain"
   />
   <Card
+    title="Dynamic Model Routing"
+    description="Per-repo AI model selection with 3-tier priority: Project config → Global default → API key auto-detect."
+    icon="RefreshCw"
+  />
+  <Card
     title="Human-in-the-Loop"
     description="Approve AI-generated patches via Telegram with a single tap. You stay in control."
     icon="UserCheck"
@@ -62,7 +67,8 @@ When an incident hits, AGIAAS runs an autonomous pipeline:
 
 ## Key Features
 
-- **🧠 Multi-Agent Reasoning**: Mixture-of-Agents debate for deep root-cause analysis using Hermes-4-405B / Claude-3.5-Sonnet
+- **🧠 Multi-Agent Reasoning**: Mixture-of-Agents debate for deep root-cause analysis
+- **🔀 Dynamic Model Selection**: Per-repo configurable models (Hermes-4-405B, Claude-3.5-Sonnet, Gemini Flash) with auto-fallback
 - **🛠️ Autonomous Patching**: Full codebase exploration, code patching, and PR generation
 - **📱 Mobile Approval**: Approve or reject AI actions via structured Telegram UI Cards
 - **📡 Multi-Provider Webhooks**: GitHub, Sentry, Vercel, and Cloudflare event ingestion

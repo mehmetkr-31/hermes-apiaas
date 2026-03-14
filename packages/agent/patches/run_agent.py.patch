@@ -1,0 +1,423 @@
+--- /tmp/hermes_orig/run_agent.py	2026-03-14 13:22:49
++++ /Users/alikar/dev/hermes-apiaas/.venv/lib/python3.12/site-packages/run_agent.py	2026-03-13 22:43:09
+@@ -100,7 +100,6 @@
+     convert_scratchpad_to_think, has_incomplete_scratchpad,
+     save_trajectory as _save_trajectory_to_file,
+ )
+-from utils import atomic_json_write
+ 
+ HONCHO_TOOL_NAMES = {
+     "honcho_context",
+@@ -111,17 +110,18 @@
+ 
+ 
+ class _SafeWriter:
+-    """Transparent stdio wrapper that catches OSError from broken pipes.
++    """Transparent stdout wrapper that catches OSError from broken pipes.
+ 
+     When hermes-agent runs as a systemd service, Docker container, or headless
+-    daemon, the stdout/stderr pipe can become unavailable (idle timeout, buffer
++    daemon, the stdout pipe can become unavailable (idle timeout, buffer
+     exhaustion, socket reset). Any print() call then raises
+-    ``OSError: [Errno 5] Input/output error``, which can crash agent setup or
+-    run_conversation() — especially via double-fault when an except handler
++    ``OSError: [Errno 5] Input/output error``, which can crash
++    run_conversation() — especially via double-fault when the except handler
+     also tries to print.
+ 
+     This wrapper delegates all writes to the underlying stream and silently
+-    catches OSError. It is transparent when the wrapped stream is healthy.
++    catches OSError.  It is installed once at the start of run_conversation()
++    and is transparent when stdout is healthy (zero overhead on the happy path).
+     """
+ 
+     __slots__ = ("_inner",)
+@@ -154,14 +154,6 @@
+         return getattr(self._inner, name)
+ 
+ 
+-def _install_safe_stdio() -> None:
+-    """Wrap stdout/stderr so best-effort console output cannot crash the agent."""
+-    for stream_name in ("stdout", "stderr"):
+-        stream = getattr(sys, stream_name, None)
+-        if stream is not None and not isinstance(stream, _SafeWriter):
+-            setattr(sys, stream_name, _SafeWriter(stream))
+-
+-
+ class IterationBudget:
+     """Thread-safe shared iteration counter for parent and child agents.
+ 
+@@ -208,34 +200,8 @@
+ 
+ # Maximum number of concurrent worker threads for parallel tool execution.
+ _MAX_TOOL_WORKERS = 8
+-
+-
+-def _inject_honcho_turn_context(content, turn_context: str):
+-    """Append Honcho recall to the current-turn user message without mutating history.
+-
+-    The returned content is sent to the API for this turn only. Keeping Honcho
+-    recall out of the system prompt preserves the stable cache prefix while
+-    still giving the model continuity context.
+-    """
+-    if not turn_context:
+-        return content
+ 
+-    note = (
+-        "[System note: The following Honcho memory was retrieved from prior "
+-        "sessions. It is continuity context for this turn only, not new user "
+-        "input.]\n\n"
+-        f"{turn_context}"
+-    )
+ 
+-    if isinstance(content, list):
+-        return list(content) + [{"type": "text", "text": note}]
+-
+-    text = "" if content is None else str(content)
+-    if not text.strip():
+-        return note
+-    return f"{text}\n\n{note}"
+-
+-
+ class AIAgent:
+     """
+     AI Agent with tool calling capabilities.
+@@ -332,8 +298,6 @@
+             honcho_manager: Optional shared HonchoSessionManager owned by the caller.
+             honcho_config: Optional HonchoClientConfig corresponding to honcho_manager.
+         """
+-        _install_safe_stdio()
+-
+         self.model = model
+         self.max_iterations = max_iterations
+         # Shared iteration budget — parent creates, children inherit.
+@@ -417,30 +381,19 @@
+ 
+         # Persistent error log -- always writes WARNING+ to ~/.hermes/logs/errors.log
+         # so tool failures, API errors, etc. are inspectable after the fact.
+-        # In gateway mode, each incoming message creates a new AIAgent instance,
+-        # while the root logger is process-global. Re-adding the same errors.log
+-        # handler would cause each warning/error line to be written multiple times.
+-        from logging.handlers import RotatingFileHandler
+-        root_logger = logging.getLogger()
+-        error_log_dir = _hermes_home / "logs"
+-        error_log_path = error_log_dir / "errors.log"
+-        resolved_error_log_path = error_log_path.resolve()
+-        has_errors_log_handler = any(
+-            isinstance(handler, RotatingFileHandler)
+-            and Path(getattr(handler, "baseFilename", "")).resolve() == resolved_error_log_path
+-            for handler in root_logger.handlers
++        from agent.redact import RedactingFormatter
++        _error_log_dir = Path.home() / ".hermes" / "logs"
++        _error_log_dir.mkdir(parents=True, exist_ok=True)
++        _error_log_path = _error_log_dir / "errors.log"
++        from logging.handlers import RotatingFileHandler
++        _error_file_handler = RotatingFileHandler(
++            _error_log_path, maxBytes=2 * 1024 * 1024, backupCount=2,
+         )
+-        if not has_errors_log_handler:
+-            from agent.redact import RedactingFormatter
+-            error_log_dir.mkdir(parents=True, exist_ok=True)
+-            error_file_handler = RotatingFileHandler(
+-                error_log_path, maxBytes=2 * 1024 * 1024, backupCount=2,
+-            )
+-            error_file_handler.setLevel(logging.WARNING)
+-            error_file_handler.setFormatter(RedactingFormatter(
+-                '%(asctime)s %(levelname)s %(name)s: %(message)s',
+-            ))
+-            root_logger.addHandler(error_file_handler)
++        _error_file_handler.setLevel(logging.WARNING)
++        _error_file_handler.setFormatter(RedactingFormatter(
++            '%(asctime)s %(levelname)s %(name)s: %(message)s',
++        ))
++        logging.getLogger().addHandler(_error_file_handler)
+ 
+         if self.verbose_logging:
+             logging.basicConfig(
+@@ -1399,12 +1352,8 @@
+                 "messages": cleaned,
+             }
+ 
+-            atomic_json_write(
+-                self.session_log_file,
+-                entry,
+-                indent=2,
+-                default=str,
+-            )
++            with open(self.session_log_file, "w", encoding="utf-8") as f:
++                json.dump(entry, f, indent=2, ensure_ascii=False, default=str)
+ 
+         except Exception as e:
+             if self.verbose_logging:
+@@ -1848,6 +1797,24 @@
+         if platform_key in PLATFORM_HINTS:
+             prompt_parts.append(PLATFORM_HINTS[platform_key])
+ 
++        # Prompt-based tool calling fallback for providers that don't support 
++        # native tools (e.g. Nous Portal with Hermes 4 models).
++        if self.tools and "inference-api.nousresearch.com" in self.base_url.lower():
++            tool_defs = json.dumps([t["function"] for t in self.tools], indent=2)
++            xml_tools = (
++                "\n\n# Tool Calling\n"
++                "You are a function calling AI model. You are provided with function signatures within <tools> </tools> XML tags. You may call one or more functions to assist with the user query.\n"
++                "<tools>\n"
++                f"{tool_defs}\n"
++                "</tools>\n"
++                "Each function call should be enclosed within <tool_call> </tool_call> XML tags.\n"
++                "Example:\n"
++                "<tool_call>\n"
++                '{"name": "function_name", "arguments": {"arg1": "val1"}}\n'
++                "</tool_call>"
++            )
++            prompt_parts.append(xml_tools)
++
+         return "\n\n".join(prompt_parts)
+     
+     def _repair_tool_call(self, tool_name: str) -> str | None:
+@@ -2761,43 +2728,7 @@
+                 kwargs["max_output_tokens"] = self.max_tokens
+ 
+             return kwargs
+-
+-        sanitized_messages = api_messages
+-        needs_sanitization = False
+-        for msg in api_messages:
+-            if not isinstance(msg, dict):
+-                continue
+-            if "codex_reasoning_items" in msg:
+-                needs_sanitization = True
+-                break
+ 
+-            tool_calls = msg.get("tool_calls")
+-            if isinstance(tool_calls, list):
+-                for tool_call in tool_calls:
+-                    if not isinstance(tool_call, dict):
+-                        continue
+-                    if "call_id" in tool_call or "response_item_id" in tool_call:
+-                        needs_sanitization = True
+-                        break
+-                if needs_sanitization:
+-                    break
+-
+-        if needs_sanitization:
+-            sanitized_messages = copy.deepcopy(api_messages)
+-            for msg in sanitized_messages:
+-                if not isinstance(msg, dict):
+-                    continue
+-
+-                # Codex-only replay state must not leak into strict chat-completions APIs.
+-                msg.pop("codex_reasoning_items", None)
+-
+-                tool_calls = msg.get("tool_calls")
+-                if isinstance(tool_calls, list):
+-                    for tool_call in tool_calls:
+-                        if isinstance(tool_call, dict):
+-                            tool_call.pop("call_id", None)
+-                            tool_call.pop("response_item_id", None)
+-
+         provider_preferences = {}
+         if self.providers_allowed:
+             provider_preferences["only"] = self.providers_allowed
+@@ -2812,11 +2743,20 @@
+         if self.provider_data_collection:
+             provider_preferences["data_collection"] = self.provider_data_collection
+ 
++        _is_nous = "nousresearch" in self.base_url.lower()
++
++        # Nous Portal currently returns 404 if 'tools' is present in the payload.
++        # Suppress the native parameter so the model can fall back to prompt-based
++        # tool calling (instructions injected in _build_system_prompt).
++        tools = self.tools if self.tools else None
++        if _is_nous and tools:
++            tools = None
++
+         api_kwargs = {
+             "model": self.model,
+-            "messages": sanitized_messages,
+-            "tools": self.tools if self.tools else None,
+-            "timeout": float(os.getenv("HERMES_API_TIMEOUT", 900.0)),
++            "messages": api_messages,
++            "tools": tools,
++            "timeout": 900.0,
+         }
+ 
+         if self.max_tokens is not None:
+@@ -2826,13 +2766,11 @@
+ 
+         _is_openrouter = "openrouter" in self.base_url.lower()
+ 
+-        # Provider preferences (only, ignore, order, sort) are OpenRouter-
+         # specific.  Only send to OpenRouter-compatible endpoints.
+         # TODO: Nous Portal will add transparent proxy support — re-enable
+         # for _is_nous when their backend is updated.
+         if provider_preferences and _is_openrouter:
+             extra_body["provider"] = provider_preferences
+-        _is_nous = "nousresearch" in self.base_url.lower()
+ 
+         _is_mistral = "api.mistral.ai" in self.base_url.lower()
+         if (_is_openrouter or _is_nous) and not _is_mistral:
+@@ -2865,6 +2803,36 @@
+         Handles reasoning extraction, reasoning_details, and optional tool_calls
+         so both the tool-call path and the final-response path share one builder.
+         """
++        # Fallback: parse prompt-based tool calls from XML tags if no native
++        # tool_calls were returned (used for Nous Portal compatibility).
++        if not getattr(assistant_message, 'tool_calls', None) and assistant_message.content:
++            tool_call_blocks = re.findall(r'<tool_call>(.*?)</tool_call>', assistant_message.content, flags=re.DOTALL)
++            parsed_calls = []
++            for block in tool_call_blocks:
++                try:
++                    # Clean up common model artifacts (markdown blocks, leading/trailing whitespace)
++                    clean_block = block.strip()
++                    if clean_block.startswith("```"):
++                        lines = clean_block.splitlines()
++                        if len(lines) >= 2:
++                            clean_block = "\n".join(lines[1:-1]).strip()
++                    
++                    # Basic JSON repair for single quotes often used by smaller models
++                    data = json.loads(clean_block.replace("'", '"'))
++                    if "name" in data:
++                        parsed_calls.append(SimpleNamespace(
++                            id=f"call_{uuid.uuid4().hex[:12]}",
++                            type="function",
++                            function=SimpleNamespace(
++                                name=data["name"],
++                                arguments=json.dumps(data.get("arguments", {})) if isinstance(data.get("arguments"), dict) else str(data.get("arguments", "{}"))
++                            )
++                        ))
++                except Exception as e:
++                    logger.debug("Failed to parse XML tool call block: %s", e)
++            if parsed_calls:
++                assistant_message.tool_calls = parsed_calls
++
+         reasoning_text = self._extract_reasoning(assistant_message)
+ 
+         # Fallback: extract inline <think> blocks from content when no structured
+@@ -3929,9 +3897,10 @@
+         Returns:
+             Dict: Complete conversation result with final response and message history
+         """
+-        # Guard stdio against OSError from broken pipes (systemd/headless/daemon).
+-        # Installed once, transparent when streams are healthy, prevents crash on write.
+-        _install_safe_stdio()
++        # Guard stdout against OSError from broken pipes (systemd/headless/daemon).
++        # Installed once, transparent when stdout is healthy, prevents crash on write.
++        if not isinstance(sys.stdout, _SafeWriter):
++            sys.stdout = _SafeWriter(sys.stdout)
+ 
+         # Generate unique task_id if not provided to isolate VMs between concurrent tasks
+         effective_task_id = task_id or str(uuid.uuid4())
+@@ -3995,11 +3964,10 @@
+ 
+         # Honcho prefetch consumption:
+         # - First turn: bake into cached system prompt (stable for the session).
+-        # - Later turns: attach recall to the current-turn user message at
+-        #   API-call time only (never persisted to history / session DB).
++        # - Later turns: inject as ephemeral system context for this API call only.
+         #
+-        # This keeps the system-prefix cache stable while still allowing turn N
+-        # to consume background prefetch results from turn N-1.
++        # This keeps the persisted/cached prompt stable while still allowing
++        # turn N to consume background prefetch results from turn N-1.
+         self._honcho_context = ""
+         self._honcho_turn_context = ""
+         _recall_mode = (self._honcho_config.recall_mode if self._honcho_config else "hybrid")
+@@ -4017,7 +3985,6 @@
+         # Add user message
+         user_msg = {"role": "user", "content": user_message}
+         messages.append(user_msg)
+-        current_turn_user_idx = len(messages) - 1
+         
+         if not self.quiet_mode:
+             print(f"💬 Starting conversation: '{user_message[:60]}{'...' if len(user_message) > 60 else ''}'")
+@@ -4167,14 +4134,9 @@
+             # However, providers like Moonshot AI require a separate 'reasoning_content' field
+             # on assistant messages with tool_calls. We handle both cases here.
+             api_messages = []
+-            for idx, msg in enumerate(messages):
++            for msg in messages:
+                 api_msg = msg.copy()
+ 
+-                if idx == current_turn_user_idx and msg.get("role") == "user" and self._honcho_turn_context:
+-                    api_msg["content"] = _inject_honcho_turn_context(
+-                        api_msg.get("content", ""), self._honcho_turn_context
+-                    )
+-
+                 # For ALL assistant messages, pass reasoning back to the API
+                 # This ensures multi-turn reasoning context is preserved
+                 if msg.get("role") == "assistant":
+@@ -4202,11 +4164,11 @@
+ 
+             # Build the final system message: cached prompt + ephemeral system prompt.
+             # Ephemeral additions are API-call-time only (not persisted to session DB).
+-            # Honcho later-turn recall is intentionally kept OUT of the system prompt
+-            # so the stable cache prefix remains unchanged.
+             effective_system = active_system_prompt or ""
+             if self.ephemeral_system_prompt:
+                 effective_system = (effective_system + "\n\n" + self.ephemeral_system_prompt).strip()
++            if self._honcho_turn_context:
++                effective_system = (effective_system + "\n\n" + self._honcho_turn_context).strip()
+             if effective_system:
+                 api_messages = [{"role": "system", "content": effective_system}] + api_messages
+ 
+@@ -4902,6 +4864,11 @@
+                 # Handle assistant response
+                 if assistant_message.content and not self.quiet_mode:
+                     print(f"{self.log_prefix}🤖 Assistant: {assistant_message.content[:100]}{'...' if len(assistant_message.content) > 100 else ''}")
++
++                # Normalize/Parse prompt-based XML tool calls if native ones are missing.
++                # This also captures reasoning and ensures consistent assistant message structure.
++                # CRITICAL: This must happen BEFORE checking assistant_message.tool_calls.
++                assistant_msg_dict = self._build_assistant_message(assistant_message, finish_reason)
+ 
+                 # Notify progress callback of model's thinking (used by subagent
+                 # delegation to relay the child's reasoning to the parent display).
+@@ -4961,7 +4928,7 @@
+                         self._codex_incomplete_retries = 0
+                     self._codex_incomplete_retries += 1
+ 
+-                    interim_msg = self._build_assistant_message(assistant_message, finish_reason)
++                    interim_msg = assistant_msg_dict
+                     interim_has_content = bool((interim_msg.get("content") or "").strip())
+                     interim_has_reasoning = bool(interim_msg.get("reasoning", "").strip()) if isinstance(interim_msg.get("reasoning"), str) else False
+ 
+@@ -5024,8 +4991,7 @@
+                         invalid_name = invalid_tool_calls[0]
+                         invalid_preview = invalid_name[:80] + "..." if len(invalid_name) > 80 else invalid_name
+                         print(f"{self.log_prefix}⚠️  Unknown tool '{invalid_preview}' — sending error to model for self-correction")
+-                        assistant_msg = self._build_assistant_message(assistant_message, finish_reason)
+-                        messages.append(assistant_msg)
++                        messages.append(assistant_msg_dict)
+                         for tc in assistant_message.tool_calls:
+                             if tc.function.name not in self.valid_tool_names:
+                                 content = f"Tool '{tc.function.name}' does not exist. Available tools: {available}"
+@@ -5085,7 +5051,7 @@
+                     # Reset retry counter on successful JSON validation
+                     self._invalid_json_retries = 0
+                     
+-                    assistant_msg = self._build_assistant_message(assistant_message, finish_reason)
++                    assistant_msg = assistant_msg_dict
+                     
+                     # If this turn has both content AND tool_calls, capture the content
+                     # as a fallback final response. Common pattern: model delivers its
+@@ -5246,8 +5212,7 @@
+                         )
+                     ):
+                         codex_ack_continuations += 1
+-                        interim_msg = self._build_assistant_message(assistant_message, "incomplete")
+-                        messages.append(interim_msg)
++                        messages.append(assistant_msg_dict)
+ 
+                         continue_msg = {
+                             "role": "user",
+@@ -5269,9 +5234,7 @@
+                     # Strip <think> blocks from user-facing response (keep raw in messages for trajectory)
+                     final_response = self._strip_think_blocks(final_response).strip()
+                     
+-                    final_msg = self._build_assistant_message(assistant_message, finish_reason)
+-                    
+-                    messages.append(final_msg)
++                    messages.append(assistant_msg_dict)
+                     
+                     if not self.quiet_mode:
+                         print(f"🎉 Conversation completed after {api_call_count} OpenAI-compatible API call(s)")

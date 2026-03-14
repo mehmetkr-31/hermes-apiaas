@@ -1,9 +1,9 @@
+import { ASCIIText } from "@agiaas/ui/components/ASCIIText";
 import { Button } from "@agiaas/ui/components/button";
+import { Logo } from "@agiaas/ui/components/logo";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import ASCIIText from "../components/ASCIIText";
-import { Logo } from "../components/Logo";
 import { orpc } from "../utils/orpc";
 
 export const Route = createFileRoute("/")({

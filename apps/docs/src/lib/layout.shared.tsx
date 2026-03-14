@@ -1,16 +1,22 @@
+import { Logo } from "@agiaas/ui/components/logo";
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 
 // fill this with your actual GitHub info, for example:
 export const gitConfig = {
-	user: "fuma-nama",
-	repo: "fumadocs",
+	user: "alikar",
+	repo: "hermes-apiaas",
 	branch: "main",
 };
 
 export function baseOptions(): BaseLayoutProps {
 	return {
 		nav: {
-			title: "Tanstack Start",
+			title: (
+				<div className="flex items-center gap-2">
+					<Logo className="h-6 w-auto" />
+					<span className="font-bold text-lg tracking-tight">AGIaaS Docs</span>
+				</div>
+			),
 		},
 		githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
 	};

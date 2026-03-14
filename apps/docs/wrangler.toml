@@ -1,0 +1,8 @@
+name = "agiaas-docs"
+# Set this to today's date
+compatibility_date = "2026-03-14"
+compatibility_flags = [ "nodejs_compat" ]
+main = "@tanstack/react-start/server-entry"
+
+[observability]
+enabled = true

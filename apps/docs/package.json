@@ -9,9 +9,12 @@
 		"start": "node .output/server/index.mjs",
 		"preview": "vite preview",
 		"check-types": "fumadocs-mdx && tsc --noEmit",
+		"deploy": "npm run build && wrangler deploy",
+		"cf-typegen": "wrangler types",
 		"postinstall": "fumadocs-mdx"
 	},
 	"dependencies": {
+		"@agiaas/ui": "workspace:*",
 		"@tanstack/react-router": "1.166.7",
 		"@tanstack/react-router-devtools": "1.166.7",
 		"@tanstack/react-start": "1.166.8",
@@ -26,6 +29,7 @@
 	},
 	"devDependencies": {
 		"@agiaas/config": "workspace:*",
+		"@cloudflare/vite-plugin": "^1.2.0",
 		"@tailwindcss/vite": "^4.2.1",
 		"@types/mdx": "^2.0.13",
 		"@types/node": "catalog:",
@@ -34,6 +38,7 @@
 		"@vitejs/plugin-react": "^6.0.1",
 		"nitro": "^3.0.260311-beta",
 		"tailwindcss": "catalog:",
-		"typescript": "^5.9.3"
+		"typescript": "^5.9.3",
+		"wrangler": "^4.73.0"
 	}
 }

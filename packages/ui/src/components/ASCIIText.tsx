@@ -193,12 +193,10 @@ class AsciiFilter {
 			for (let y = 0; y < h; y++) {
 				for (let x = 0; x < w; x++) {
 					const i = x * 4 + y * 4 * w;
-					const [r, g, b, a] = [
-						imgData[i],
-						imgData[i + 1],
-						imgData[i + 2],
-						imgData[i + 3],
-					];
+					const r = imgData[i] ?? 0;
+					const g = imgData[i + 1] ?? 0;
+					const b = imgData[i + 2] ?? 0;
+					const a = imgData[i + 3] ?? 0;
 
 					if (a === 0) {
 						str += " ";
@@ -447,6 +445,7 @@ class CanvAscii {
 		const e = (evt as TouchEvent).touches
 			? (evt as TouchEvent).touches[0]
 			: (evt as MouseEvent);
+		if (!e) return;
 		const bounds = this.container.getBoundingClientRect();
 		const x = e.clientX - bounds.left;
 		const y = e.clientY - bounds.top;
@@ -467,8 +466,10 @@ class CanvAscii {
 		this.textCanvas.render();
 		this.texture.needsUpdate = true;
 
-		(this.mesh.material as THREE.ShaderMaterial).uniforms.uTime.value =
-			Math.sin(time);
+		if (this.mesh.material instanceof THREE.ShaderMaterial) {
+			const uTime = this.mesh.material.uniforms.uTime;
+			if (uTime) uTime.value = Math.sin(time);
+		}
 
 		this.updateRotation();
 		this.filter.render(this.scene, this.camera);
@@ -531,7 +532,7 @@ interface ASCIITextProps {
 	enableWaves?: boolean;
 }
 
-export default function ASCIIText({
+export function ASCIIText({
 	text = "David!",
 	asciiFontSize = 8,
 	textFontSize = 200,
@@ -579,9 +580,11 @@ export default function ASCIIText({
 
 			if (width === 0 || height === 0) {
 				observer = new IntersectionObserver(
-					async ([entry]) => {
+					async (entries) => {
 						if (cancelled) return;
+						const entry = entries[0];
 						if (
+							entry &&
 							entry.isIntersecting &&
 							entry.boundingClientRect.width > 0 &&
 							entry.boundingClientRect.height > 0

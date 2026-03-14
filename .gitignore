@@ -30,3 +30,4 @@ local.db
 *.jsonl
 hermes_data/
 .tmp/
+local.db

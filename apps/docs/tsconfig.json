@@ -1,0 +1,15 @@
+{
+	"extends": "@agiaas/config/tsconfig.base.json",
+	"include": ["**/*.ts", "**/*.tsx", ".source/**/*.ts", "vite.config.ts"],
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./src/*"],
+			"collections/*": [".source/*"]
+		},
+		"lib": ["DOM", "DOM.Iterable", "ESNext"],
+		"jsx": "react-jsx",
+		"verbatimModuleSyntax": false,
+		"noEmit": true
+	}
+}

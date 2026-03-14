@@ -1,230 +1,153 @@
 <p align="center">
-  <img src="agiaas_logo.svg" alt="AGIAAS Logo" width="200"/>
+  <img src="agiaas_logo.svg" alt="AGIAAS Logo" width="180"/>
 </p>
 
 # 🦊 AGIAAS - Autonomous Agent Platform
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Stack: TypeScript & Python](https://img.shields.io/badge/Stack-TS%20%2F%20Python-blue.svg)](#-tech-stack)
+[![Status: Active Development](https://img.shields.io/badge/Status-Active-green.svg)](#)
+
 > **Intelligent Incident Management & On-Call Agent System**
 
-AGIAAS (Autonomous GitHub Incident Analysis & Automation System) is an **intelligent agent platform** that automatically monitors your software projects, detects errors, analyzes them, and notifies you via Telegram.
+AGIAAS (Autonomous GitHub Incident Analysis & Automation System) is a powerful **intelligent agent platform** that monitors your GitHub infrastructure, analyzes anomalies using state-of-the-art AI, and facilitates automated fixes via a Telegram-integrated human-in-the-loop workflow.
 
-## 🚀 Purpose
+---
 
-AGIAAS is designed to automate developer "on-call" processes:
+## 🚀 Key Features
 
-- **Proactive Monitoring:** Automatically monitors GitHub Issues, Pull Requests, and Workflow failures
-- **Smart Analysis:** Uses AI to analyze the root cause of errors
-- **Interactive Approval:** Requests your approval for changes via Telegram
-- **Auto-Fix:** After approval, fixes the code and creates PRs
-- **Cost Tracking:** Reports token usage and costs for each operation
+- **🎯 Proactive Monitoring:** Real-time tracking of GitHub Issues, PRs, and Workflow failures.
+- **🧠 Brain Layer:** Leverage Claude-3.5-Sonnet or Hermes-Llama for deep root-cause analysis.
+- **📱 Human-in-the-Loop:** Interactive approval flow via Telegram bots—you decide, AI executes.
+- **🛠️ Autonomous Fixes:** Automated branch creation, code patching, and PR generation.
+- **💰 Cost Transparency:** Real-time token usage and cost calculation for every operation.
+- **📡 Webhook Automation:** Zero-config webhook synchronization using Cloudflare tunnels.
 
-## 🔄 How It Works?
+---
 
-```
-┌─────────────┐     Webhook      ┌─────────────┐     AI Analysis     ┌─────────────┐
-│   GitHub    │ ───────────────▶ │ AGIAAS Agent │ ────────────────▶ │   Claude    │
-│  (Events)   │                  │  (Python)   │                  │ /Hermes-Llama│
-└─────────────┘                  └──────────────┘                  └─────────────┘
-                                        │
-                                        │ Report & Approval
-                                        ▼
-                               ┌─────────────┐
-                               │  Telegram  │ ◀── User Approval
-                               │    Bot     │
-                               └─────────────┘
-```
+## 🔄 System Architecture
 
-### Flow Details:
+```mermaid
+graph TD
+    subgraph GitHub ["GitHub Infrastructure"]
+        Events[Issues / PRs / Workflows]
+        GH_API[GitHub API & CLI]
+    end
 
-1. **Event Trigger:**
-   - New Issue opened
-   - Pull Request created/modified
-   - GitHub Workflow fails
-   - Push notification
+    subgraph Core ["AGIAAS Core (Monorepo)"]
+        WS[Webhook Server]
+        Agent[Python Agent / AGIAAS]
+        DB[(SQLite / Drizzle)]
+        API[Backend API]
+    end
 
-2. **Agent Actions:**
-   - Analyzes the event via GitHub API
-   - Reads relevant code files
-   - Identifies root cause
+    subgraph Interaction ["User Interface"]
+        Web[React Dashboard]
+        Bot[Telegram Bot]
+    end
 
-3. **User Interaction:**
-   - You receive detailed report on Telegram
-   - Decide with "Approve/Reject" buttons
-
-4. **Auto Action:**
-   - Fixes the code
-   - Creates branch
-   - Opens PR
-
-## 🛠️ Installation
-
-### Requirements
-
-- Node.js 18+
-- Python 3.12+
-- pnpm
-- GitHub Account
-- Telegram Bot Token
-
-### Step 1: Clone the Project
-
-```bash
-git clone https://github.com/your-username/agiaas.git
-cd agiaas
+    Events -- "Webhooks" --> WS
+    WS -- "Trigger" --> Agent
+    Agent -- "Analysis" --> AI[AI Models / Claude / Hermes]
+    Agent -- "Approval Request" --> Bot
+    Bot -- "User Action" --> Agent
+    Agent -- "Execute Fixed/PR" --> GH_API
+    Web -- "Management" --> API
+    API -- "Data" --> DB
 ```
 
-### Step 2: Install Dependencies
+---
 
-```bash
-pnpm install
-```
+## 🔌 Project Structure
 
-### Step 3: Setup Database
+This is a monorepo powered by **Turborepo** and **pnpm**.
 
-```bash
-pnpm run db:push
-```
+| Package | Path | Description |
+| :--- | :--- | :--- |
+| **`@agiaas/agent`** | `packages/agent` | The core Python-based intelligent agent. |
+| **`@agiaas/webhook-server`** | `packages/webhook-server` | Node.js bridge for Cloudflare tunnel & webhook ingestion. |
+| **`@agiaas/web`** | `apps/web` | React-based monitoring & management dashboard. |
+| **`@agiaas/docs`** | `apps/docs` | Documentation site powered by Fumadocs. |
+| **`@agiaas/api`** | `packages/api` | Type-safe backend API powered by oRPC. |
+| **`@agiaas/db`** | `packages/db` | Database schema & migrations using Drizzle ORM. |
+| **`@agiaas/auth`** | `packages/auth` | Authentication logic & providers. |
+| **`@agiaas/ui`** | `packages/ui` | Shared UI components built with Tailwind & Radix. |
+| **`@agiaas/env`** | `packages/env` | Type-safe environment variable management. |
+| **`@agiaas/config`** | `packages/config` | Shared ESLint, TypeScript, and Biome configurations. |
 
-### Step 4: Environment Variables
+---
 
-```bash
-# Copy example file
-cp packages/agent/.env.example .env
+## 🛠️ Installation & Setup
 
-# Edit the file
-nano .env
-```
+### Prerequisites
 
-Required variables:
-```bash
-# Telegram Bot Token (get from @BotFather)
-TELEGRAM_BOT_TOKEN=your_bot_token_here
+- **Runtimes:** Node.js 18+, Python 3.12+
+- **Tools:** `pnpm`, `gh` (GitHub CLI), `sqlite3`, `cloudflared`
+- **Accounts:** GitHub access, Telegram Bot (via @BotFather)
 
-# AI Provider (OpenRouter or Nous)
-OPENROUTER_API_KEY=your_openrouter_key
-# OR
-NOUS_API_KEY=your_nous_key
-```
+### Quick Start
 
-### Step 5: Telegram Bot Setup
+1. **Clone & Install**
+   ```bash
+   git clone https://github.com/your-username/hermes-apiaas.git
+   cd hermes-apiaas
+   pnpm install
+   ```
 
-1. Go to @BotFather on Telegram
-2. Create new bot with `/newbot` command
-3. Copy the token and paste into .env file
-4. Send start command to your bot
+2. **Database Initialization**
+   ```bash
+   pnpm db:push
+   ```
 
-### Step 6: Run Dashboard
+3. **Environment Setup**
+   Copy the example environment file and fill in your keys:
+   ```bash
+   cp .env.example .env
+   ```
+   > [!IMPORTANT]
+   > Ensure `TELEGRAM_BOT_TOKEN`, `GITHUB_TOKEN`, and your AI provider keys (OpenRouter/Nous) are correctly set.
 
-```bash
-pnpm run dev
-```
+4. **Launch Dashboard & API**
+   ```bash
+   pnpm dev
+   ```
+   Web Dashboard: `http://localhost:5173`
 
-Dashboard: http://localhost:5173
+5. **Start Webhook Server & Tunnel**
+   ```bash
+   cd packages/webhook-server
+   npm run dev
+   ```
+   *The webhook server will automatically open a Cloudflare tunnel and sync the URL to your GitHub repositories.*
 
-### Step 7: Start Agent
+---
 
-**Local:**
-```bash
-cd packages/agent
-pnpm server:standalone
-```
+## 🤖 Security & Principles
 
-**With Docker:**
-```bash
-docker-compose up --build
-```
+AGIAAS is built with safety as a first-class citizen:
 
-## 📦 Project Structure
+1. **Explicit Approval:** No code is modified or pushed without a direct "Approve" from the Telegram bot.
+2. **Minimal Footprint:** Agents operate in isolated `.tmp` directories.
+3. **Encrypted Secrets:** Sensitive tokens and webhook secrets are stored with AES-256-GCM encryption.
+4. **Audit Logs:** Every AI suggestion and token cost is logged for full accountability.
 
-```
-hermes-apiaas/
-├── apps/
-│   └── web/                 # React Dashboard
-├── packages/
-│   ├── agent/               # Python Agent (AGIAAS)
-│   │   ├── scripts/
-│   │   │   └── on_call/  # Agent logic
-│   │   ├── tools/          # Tool definitions
-│   │   └── hermes_data/  # Dependencies
-│   ├── ui/                  # Shadcn UI components
-│   ├── db/                  # Drizzle schema
-│   ├── api/                 # API layer
-│   └── auth/               # Authentication
-├── docker-compose.yml       # Docker configuration
-└── local.db                 # SQLite database
-```
-
-## 🔌 Supported Platforms
-
-### GitHub Events
-- ✅ Issue Opened
-- ✅ Pull Request Created
-- ✅ Workflow Failure
-- ✅ Push Notifications
-
-### Notification Platforms
-- ✅ Telegram Bot
-- 🔄 Discord (Coming Soon)
-- 🔄 Slack (Coming Soon)
-
-## ⚙️ Configuration
-
-### Adding a Project
-
-Via Dashboard or directly to database:
-
-```bash
-sqlite3 local.db "INSERT INTO hermes_project (repo_full_name, is_active, telegram_chat_id) VALUES ('username/repo', 1, 'chat_id');"
-```
-
-### Changing the Model
-
-In `packages/agent/scripts/on_call/reporter.py`:
-
-```python
-DEFAULT_MODEL = "anthropic/claude-3-5-sonnet"
-# or
-DEFAULT_MODEL = "Hermes-4-405B"
-```
+---
 
 ## 📊 Cost Tracking
 
-AGIAAS automatically calculates the cost of each operation:
+AGIAAS provides real-time financial tracking for AI operations. Costs are calculated dynamically based on input/output tokens and the specific model pricing fetched via **OpenRouter**.
 
-```
-💰 Cost: $0.0234  |  ⚡ Tokens: 1,240
-```
+> [!TIP]
+> Use lighter models for initial triage and switch to Claude-3.5-Sonnet for complex root-cause analysis to optimize costs.
 
-Costs are calculated based on the pricing of the model you use (via OpenRouter).
-
-## 🐳 Running with Docker
-
-```bash
-# Build for production
-docker-compose build
-
-# Run in background
-docker-compose up -d
-
-# View logs
-docker-compose logs -f hermes-agent
-
-# Stop
-docker-compose down
-```
-
-## 🤖 Security Rules
-
-The agent follows these rules for safe and accurate operation:
-
-1. **Approval Protocol:** Gets your approval before making code changes
-2. **Local Filesystem:** Only uses the `.tmp` folder
-3. **GitHub Native:** All operations via `gh` CLI
-4. **Database Source:** Gets active projects from database
+---
 
 ## 📝 License
 
-MIT License
+Distributed under the **MIT License**. See `LICENSE` for more information.
 
+---
 
-**Note:** This project is in active development. We welcome contributions!
+<p align="center">
+  Built with ❤️ by the AGIAAS Team
+</p>

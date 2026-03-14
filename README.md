@@ -89,8 +89,8 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
 
 1. **Clone & Install**
    ```bash
-   git clone https://github.com/your-username/hermes-apiaas.git
-   cd hermes-apiaas
+   git clone https://github.com/mehmetkr-31/agiaas.git
+   cd agiaas
    pnpm install
    ```
 

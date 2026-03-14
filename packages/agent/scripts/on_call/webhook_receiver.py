@@ -565,7 +565,7 @@ async def chat_with_hermes(request: Request):
         is_nous = active_key and active_key.startswith("sk-2yd")
         target_base_url = NOUS_API_BASE_URL if is_nous else OPENROUTER_BASE_URL
         fallback_model = (
-            "Hermes-3-Llama-3.1-405B" if is_nous else "anthropic/claude-3-5-sonnet"
+            "hermes-3-llama-3.1-405b" if is_nous else "anthropic/claude-3-5-sonnet"
         )
 
         # Priority: Global Model > Fallback

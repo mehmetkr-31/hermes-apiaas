@@ -27,11 +27,15 @@ try {
 	const rootEnvPath = resolve(__dirname, "../../.env");
 	const envConfig = readFileSync(rootEnvPath, "utf-8");
 	for (const line of envConfig.split("\n")) {
-		const [key, ...valueParts] = line.split("=");
+		const trimmedLine = line.trim();
+		if (!trimmedLine || trimmedLine.startsWith("#")) continue;
+		
+		const [key, ...valueParts] = trimmedLine.split("=");
 		if (key && valueParts.length > 0) {
 			process.env[key.trim()] = valueParts.join("=").trim();
 		}
 	}
+	console.log(`[webhook-server] 📝 Loaded root .env. WEBHOOK_PORT: ${process.env.WEBHOOK_PORT || "not set"}`);
 } catch (err) {
 	console.warn(`[webhook-server] ⚠️ Could not load root .env: ${err.message}`);
 }
@@ -155,7 +159,7 @@ receiver.on("exit", (code) => {
 	console.log(`[webhook-server] receiver exited with code ${code}`);
 });
 
-console.log("[webhook-server] 🚀 webhook_receiver.py started on :8090");
+const PORT = process.env.WEBHOOK_PORT || 8090;
 
 // ── 2. Start cloudflared tunnel ───────────────────────────────────────────────
 // Give the Python server 2s to come up before opening the tunnel
@@ -168,7 +172,7 @@ const cf = spawn(
 		"--protocol",
 		"http2",
 		"--url",
-		"http://localhost:8090",
+		`http://127.0.0.1:${PORT}`,
 		"--no-autoupdate",
 	],
 	{ stdio: ["ignore", "pipe", "pipe"] },

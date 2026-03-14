@@ -85,19 +85,26 @@ This is a monorepo powered by **Turborepo** and **pnpm**.
 - **Tools:** `pnpm`, `gh` (GitHub CLI), `sqlite3`, `cloudflared`
 - **Accounts:** GitHub access, Telegram Bot (via @BotFather)
 
-### Quick Start
+### Quick Start (Docker - Recommended)
 
-1. **Clone & Install**
+1. **Clone & Setup**
    ```bash
    git clone https://github.com/mehmetkr-31/agiaas.git
    cd agiaas
    pnpm install
+   pnpm setup  # 👈 This will create your .env interactively
    ```
 
-2. **Database Initialization**
+2. **Run the Platform**
    ```bash
-   pnpm db:push
+   docker-compose up --build
    ```
+
+> Access the **Dashboard** at `http://localhost:3678` and the **AI Agent** at `http://localhost:8678`.
+
+---
+
+### Local Platform Setup (No Docker)
 
 3. **Environment Setup**
    Copy the example environment file and fill in your keys:
